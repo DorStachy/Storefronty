@@ -47,4 +47,5 @@ export const config = {
   // Hosting for the post-reply 48h preview: 'local' (the static server) until Cloudflare creds land.
   hosting: { engine: E.HOSTING_ENGINE || 'local', previewHours: Number(E.PREVIEW_HOURS) || 48 },
   anthropic: { apiKey: E.ANTHROPIC_API_KEY || '', model: E.ANTHROPIC_MODEL || 'claude-opus-4-8' },
+  stripe: { secretKey: E.STRIPE_SECRET_KEY || '', webhookSecret: E.STRIPE_WEBHOOK_SECRET || '' },
 };

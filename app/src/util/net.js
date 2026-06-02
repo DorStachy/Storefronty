@@ -103,3 +103,32 @@ export async function postJson(rawUrl, payload, { timeoutMs = 12000, maxBytes = 
   const text = await readCapped(res, maxBytes);
   return JSON.parse(text);
 }
+
+// SSRF-safe POST-FORM for outbound APIs that speak application/x-www-form-urlencoded (e.g. Stripe's
+// REST API, which is form-encoded + Bearer-authed, NOT JSON). Identical guard/redirect/timeout/body-cap
+// to postJson — only the request body encoding and content-type differ. `fields` is a flat object of
+// string values (use Stripe's bracketed keys for nested params, e.g. 'line_items[0][price]'); it is
+// serialized with URLSearchParams. The reply is still parsed as JSON. Throws on
+// network/timeout/non-2xx/parse failure so callers can fall back deterministically.
+export async function postForm(rawUrl, fields, { timeoutMs = 12000, maxBytes = 2_000_000, headers = {} } = {}) {
+  const url = new URL(rawUrl);
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') throw new Error('BAD_SCHEME');
+  if (!(await resolvesPublic(url.hostname))) throw new Error('BLOCKED_PRIVATE');
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  let res;
+  try {
+    res = await fetch(url, {
+      method: 'POST', redirect: 'manual', signal: ctrl.signal,
+      headers: { 'user-agent': UA, 'content-type': 'application/x-www-form-urlencoded', accept: 'application/json', ...headers },
+      body: new URLSearchParams(fields).toString(),
+    });
+  } catch (e) {
+    clearTimeout(timer);
+    throw new Error(e.name === 'AbortError' ? 'TIMEOUT' : 'FAILED');
+  }
+  clearTimeout(timer);
+  if (!res.ok) throw new Error(`HTTP_${res.status}`);
+  const text = await readCapped(res, maxBytes);
+  return JSON.parse(text);
+}
