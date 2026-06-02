@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>מספרת [שם העסק] · [העיר]</title>
+<!--
+  DEMO TEMPLATE — Barbershop / Salon (Half A)
+  Replace every [תוכן] placeholder with the real shop's details before sending.
+  Images are intentionally placeholder tiles ("your photo here") so the demo never breaks
+  and sells the "we'll use YOUR photos" story. Drop in real <img> tags on conversion.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  /* themed hero gradient — always renders, no external image needed */
+  .hero-bg { background:
+    radial-gradient(60% 80% at 80% 20%, rgba(200,162,74,.28), transparent 60%),
+    linear-gradient(120deg, #0e0e10 30%, #1c1c22 100%); }
+  .photo-tile { background: linear-gradient(135deg, #1c1c22, #2a2a31); border:1px dashed rgba(200,162,74,.4);
+    border-radius:14px; height:240px; display:grid; place-items:center; color:#a7a39a; text-align:center; gap:6px; }
+  .photo-tile .em { font-size:34px; }
+</style>
+</head>
+<body class="theme-barber">
+
+<div class="demo-ribbon">תצוגה מקדימה · נבנה במיוחד עבור [שם העסק] — תגידו לי דבר אחד לשנות ✂️</div>
+
+<nav class="nav"><div class="container">
+  <div class="brand">[שם העסק]<span>.</span></div>
+  <div class="navlinks">
+    <a href="#services">שירותים</a>
+    <a href="#gallery">גלריה</a>
+    <a href="#hours">שעות</a>
+    <a href="#contact">צור קשר</a>
+    <a class="btn" href="tel:[טלפון]">לקביעת תור</a>
+  </div>
+</div></nav>
+
+<header class="hero">
+  <div class="hero-bg"></div>
+  <div class="container">
+    <div class="eyebrow">מספרה · [העיר]</div>
+    <h1>תספורת שאתם<br>חוזרים אליה.</h1>
+    <p>[משפט תיאור קצר — למשל: ברברים מקצוענים, אווירה טובה, ותספורת מדויקת בכל פעם.]</p>
+    <div class="hero-actions">
+      <a class="btn" href="tel:[טלפון]">📞 קביעת תור</a>
+      <a class="btn ghost" href="#services">מה אנחנו מציעים</a>
+    </div>
+  </div>
+</header>
+
+<section id="services">
+  <div class="container">
+    <div class="center" style="margin-bottom:46px">
+      <h2>השירותים שלנו</h2>
+      <p class="lead center">כל מה שצריך כדי לצאת מסופרים.</p>
+    </div>
+    <div class="grid">
+      <div class="card"><div class="icon">✂️</div><h3>תספורת גברים</h3><p>תספורת מותאמת אישית, מהקלאסי ועד הטרנדי.</p><div class="price">₪[מחיר]</div></div>
+      <div class="card"><div class="icon">🧔</div><h3>עיצוב זקן</h3><p>סידור, קיצור ועיצוב מדויק של הזקן.</p><div class="price">₪[מחיר]</div></div>
+      <div class="card"><div class="icon">💈</div><h3>חבילת VIP</h3><p>תספורת + זקן + טיפול פנים מרענן.</p><div class="price">₪[מחיר]</div></div>
+    </div>
+  </div>
+</section>
+
+<section id="gallery" style="background:var(--surface)">
+  <div class="container">
+    <div class="center" style="margin-bottom:40px"><h2>גלריה</h2><p class="lead center">כאן יופיעו התמונות האמיתיות שלכם.</p></div>
+    <div class="gallery">
+      <div class="photo-tile"><span class="em">📷</span><span>התמונה שלכם כאן</span></div>
+      <div class="photo-tile"><span class="em">📷</span><span>התמונה שלכם כאן</span></div>
+      <div class="photo-tile"><span class="em">📷</span><span>התמונה שלכם כאן</span></div>
+    </div>
+  </div>
+</section>
+
+<section id="hours">
+  <div class="container split">
+    <div>
+      <h2>שעות פתיחה</h2>
+      <ul class="hours-list">
+        <li><span>ראשון–חמישי</span><span>09:00 – 20:00</span></li>
+        <li><span>שישי</span><span>09:00 – 14:00</span></li>
+        <li><span>שבת</span><span>סגור</span></li>
+      </ul>
+      <a class="btn" href="tel:[טלפון]" style="margin-top:22px">📞 [טלפון]</a>
+    </div>
+    <div class="map" id="contact">🗺️ [כתובת] · [העיר]</div>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    <span class="brand">[שם העסק]<span style="color:var(--accent)">.</span></span>
+    [כתובת], [העיר] · [טלפון] · <a href="[אינסטגרם]">אינסטגרם</a>
+    <p style="margin-top:14px;opacity:.6;font-size:13px">נבנה ב-Storefronty</p>
+  </div>
+</footer>
+
+</body>
+</html>

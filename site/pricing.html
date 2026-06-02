@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>האתר שלכם מוכן · Storefronty</title>
+<!--
+  WIZARD-OF-OZ PAGE.
+  Looks like a real product; behind the curtain it's manual.
+  - The "one more free change" prompt builds a WhatsApp message to YOU (set OWNER_PHONE below).
+    You receive the change request and apply it by hand, then resend the live link.
+  - The buy buttons point to Stripe Payment Links (set STRIPE_* below). On payment you manually
+    register their domain (Porkbun) and point it at their live site.
+  Set the three placeholders below, host on Cloudflare Pages (free), done.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<style>
+  body { background: linear-gradient(180deg, #faf8f5, #ffffff); }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 0 22px; }
+  .pricing-hero { text-align:center; padding: 70px 0 40px; }
+  .pricing-hero .eyebrow { color: var(--accent); }
+  .pricing-hero h1 { font-size: clamp(34px,6vw,56px); margin: 12px 0; }
+  .pricing-hero p { color: var(--muted); font-size: 19px; max-width: 540px; margin: 0 auto; }
+
+  /* prompt box (Gemini-style) */
+  .prompt-card { background:#fff; border:1px solid #ececec; border-radius: 22px; box-shadow: var(--shadow); padding: 26px; margin: 10px auto 60px; }
+  .prompt-card h3 { font-size: 20px; margin-bottom: 6px; }
+  .prompt-card .sub { color: var(--muted); font-size: 15px; margin-bottom: 16px; }
+  .prompt-row { display:flex; gap:10px; align-items:flex-end; }
+  textarea { flex:1; resize: vertical; min-height: 70px; padding: 14px 16px; border-radius: 16px; border:1.5px solid #e2e2e2; font-family: var(--font); font-size: 16px; }
+  textarea:focus { outline:none; border-color: var(--accent); }
+  .chips { display:flex; gap:8px; flex-wrap:wrap; margin: 14px 0 0; }
+  .chip { background:#f3f1ec; border:none; border-radius:999px; padding:8px 14px; font-size:14px; cursor:pointer; font-family:var(--font); color:#555; }
+  .chip:hover { background:#e9e6df; }
+
+  /* plans */
+  .plans { display:grid; grid-template-columns: repeat(3,1fr); gap:18px; }
+  @media (max-width:820px){ .plans { grid-template-columns:1fr; } }
+  .plan { background:#fff; border:1px solid #ececec; border-radius:20px; padding:28px; box-shadow:var(--shadow); display:flex; flex-direction:column; }
+  .plan.featured { border:2px solid var(--accent); transform: scale(1.03); }
+  .plan .tag { color:var(--accent); font-weight:800; font-size:13px; letter-spacing:1px; text-transform:uppercase; }
+  .plan h3 { font-size:24px; margin:6px 0; }
+  .plan .amt { font-size:40px; font-weight:800; }
+  .plan .amt small { font-size:16px; color:var(--muted); font-weight:600; }
+  .plan .yr { color:var(--muted); font-size:14px; margin-bottom:14px; }
+  .plan ul { list-style:none; margin:14px 0 22px; }
+  .plan li { padding:7px 0; color:#444; font-size:15px; }
+  .plan li::before { content:"✓"; color:var(--accent); font-weight:800; margin-left:8px; }
+  .plan .btn { margin-top:auto; justify-content:center; }
+  .ribbon { background:var(--accent); color:#1a1a1a; font-size:12px; font-weight:800; border-radius:999px; padding:4px 12px; align-self:flex-start; margin-bottom:8px; }
+
+  .guarantee { text-align:center; color:var(--muted); margin:46px auto; max-width:520px; }
+  .toast { position:fixed; inset-inline:0; bottom:24px; margin:auto; width:max-content; max-width:90%; background:#1a1a1a; color:#fff; padding:14px 22px; border-radius:999px; box-shadow:var(--shadow); opacity:0; transform:translateY(20px); transition:.3s; }
+  .toast.show { opacity:1; transform:translateY(0); }
+</style>
+</head>
+<body>
+
+<nav class="nav"><div class="container">
+  <div class="brand">Storefronty<span style="color:var(--accent)">.</span></div>
+  <div class="navlinks"><a href="#plans">תוכניות</a><a class="btn" href="#prompt">בקשת שינוי</a></div>
+</div></nav>
+
+<section class="pricing-hero">
+  <div class="wrap">
+    <div class="eyebrow">האתר של [שם העסק] חי באוויר 🎉</div>
+    <h1>אהבתם? בואו נהפוך אותו לשלכם.</h1>
+    <p>השינוי הראשון היה עליי. הנה עוד אחד חינם — ואם בא לכם, האתר יכול לעלות עם דומיין משלכם כבר היום.</p>
+  </div>
+</section>
+
+<!-- One more free change -->
+<section id="prompt" style="padding-top:0">
+  <div class="wrap">
+    <div class="prompt-card">
+      <h3>✨ רוצים לשנות עוד משהו? עליי.</h3>
+      <div class="sub">תכתבו במילים שלכם מה לשנות — אני אעדכן את האתר ואחזיר לכם קישור.</div>
+      <div class="prompt-row">
+        <textarea id="prompt-input" placeholder="לדוגמה: תחליף את תמונת הרקע, תוסיף את התפריט, תשנה את הצבע לכחול..."></textarea>
+        <button class="btn" onclick="sendChange()">שליחה ←</button>
+      </div>
+      <div class="chips">
+        <button class="chip" onclick="fill('שנו לי את הצבעים')">שינוי צבעים</button>
+        <button class="chip" onclick="fill('הוסיפו את שעות הפתיחה המעודכנות')">שעות פתיחה</button>
+        <button class="chip" onclick="fill('תחליפו את התמונות לתמונות שלי')">החלפת תמונות</button>
+        <button class="chip" onclick="fill('הוסיפו כפתור הזמנה / וואטסאפ')">כפתור הזמנה</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Plans -->
+<section id="plans" style="padding-top:0">
+  <div class="wrap">
+    <div class="center" style="margin-bottom:34px"><h2>בחרו תוכנית</h2><p class="lead center">בלי התקנה, בלי כאב ראש. שינויים ללא הגבלה תמיד כלולים.</p></div>
+    <div class="plans">
+
+      <div class="plan">
+        <div class="tag">בסיסי</div>
+        <h3>Starter</h3>
+        <div class="amt">₪49<small>/חודש</small></div>
+        <div class="yr">או ₪490 לשנה (חודשיים מתנה)</div>
+        <ul>
+          <li>אתר עמוד אחד מלוטש</li>
+          <li>דומיין co.il חינם</li>
+          <li>שעות, מפה, כפתור חיוג</li>
+          <li>שינויים ללא הגבלה</li>
+        </ul>
+        <a class="btn ghost" href="[STRIPE_STARTER_LINK]">בחירת בסיסי</a>
+      </div>
+
+      <div class="plan featured">
+        <div class="ribbon">הכי פופולרי</div>
+        <div class="tag">מקצועי</div>
+        <h3>Pro</h3>
+        <div class="amt">₪99<small>/חודש</small></div>
+        <div class="yr">או ₪990 לשנה (חודשיים מתנה)</div>
+        <ul>
+          <li>אתר מרובה-מקטעים</li>
+          <li>תפריט / גלריה / ביקורות</li>
+          <li>דומיין co.il חינם או com מוזל</li>
+          <li>שינויים בעדיפות</li>
+        </ul>
+        <a class="btn" href="[STRIPE_PRO_LINK]">בחירת מקצועי</a>
+      </div>
+
+      <div class="plan">
+        <div class="tag">פרימיום</div>
+        <h3>Premium</h3>
+        <div class="amt">₪159<small>/חודש</small></div>
+        <div class="yr">או ₪1,590 לשנה (חודשיים מתנה)</div>
+        <ul>
+          <li>אתר מלא רב-עמודי</li>
+          <li>עיצוב יוקרתי + תמונות מותאמות</li>
+          <li>דומיין com כלול</li>
+          <li>SEO + אנליטיקס</li>
+        </ul>
+        <a class="btn ghost" href="[STRIPE_PREMIUM_LINK]">בחירת פרימיום</a>
+      </div>
+
+    </div>
+    <p class="guarantee">🛡️ אחריות 14 יום — אם לא אהבתם, מקבלים את הכסף בחזרה. בלי שאלות.</p>
+  </div>
+</section>
+
+<div class="toast" id="toast">נשלח! אחזור אליכם עם הקישור המעודכן 🙌</div>
+
+<footer><div class="container">
+  <span class="brand">Storefronty<span style="color:var(--accent)">.</span></span>
+  אתרים לעסקים מקומיים · [העיר]
+</div></footer>
+
+<script>
+  // === SET THESE THREE THINGS ===
+  const OWNER_PHONE = "9725XXXXXXXX"; // your WhatsApp in international format, no + (e.g. 972501234567)
+  const SHOP_NAME   = "[שם העסק]";    // optionally inject per shop
+  // Stripe Payment Links go in the [STRIPE_*_LINK] hrefs above.
+
+  function fill(t){ document.getElementById('prompt-input').value = t; document.getElementById('prompt-input').focus(); }
+  function sendChange(){
+    const txt = document.getElementById('prompt-input').value.trim();
+    if(!txt){ document.getElementById('prompt-input').focus(); return; }
+    const msg = encodeURIComponent("בקשת שינוי לאתר של " + SHOP_NAME + ":\n" + txt);
+    window.open("https://wa.me/" + OWNER_PHONE + "?text=" + msg, "_blank");
+    const t = document.getElementById('toast'); t.classList.add('show');
+    setTimeout(()=>t.classList.remove('show'), 4000);
+    document.getElementById('prompt-input').value = "";
+  }
+</script>
+
+</body>
+</html>

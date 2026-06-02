@@ -1,9 +1,44 @@
 # Storefronty — Business Blueprint
 
-> **Status:** Design + research complete. Not yet built.
+> **Status:** Design + research complete. **Market pivoted to Israel (see §0).** Phase 0 build in progress.
 > **Last updated:** 2026-06-02
 > **Founder / sender identity:** Michael Gabay
-> **Working name:** Storefronty *(verify `storefronty.com` / `storefronty.co.uk` availability + trademark before buying)*
+> **Working name:** Storefronty *(verify `.com` / `.co.il` availability + trademark before buying)*
+
+---
+
+## 0. MARKET DECISION (FINAL) — Israel, Hebrew, hyper-local
+
+> ⚠️ **This section overrides the UK assumptions in §3, §8, §11 below.** Those sections remain
+> as the *future-expansion* (English-market) playbook, but the **launch market is Israel.**
+
+**Decision:** Launch **hyper-local in Israel, in Hebrew, in the founder's own city**, using
+**in-person + relationship outreach** (walk-in, personal phone call, then consented WhatsApp/email) —
+**NOT mass cold email.**
+
+**Why (evidence-backed, June 2026 research):**
+
+| Factor | Finding | Implication |
+|---|---|---|
+| **Legal channel** | Israel Amendment 40 §30A is strict **opt-in**: no commercial email/SMS/WhatsApp/robocall without **prior written consent**. Statutory damages **up to ₪1,000/message, no proof of damage, class-action-enabled**; criminal fines up to ~₪202,000. Personal phone calls & in-person are **not** covered, and you **may ask a business** if it wants info. | **Mass cold email is off the table.** Channel = human/local. This is also the *best* concierge channel. |
+| **Trust** | Concierge sale lives on trust; founder is native Hebrew, non-native English. | Local Hebrew + face-to-face beats a foreign-name English cold email (reads as scam). |
+| **Market gap** | Israel ranks **low** on SMB website penetration (OECD 2022); ~10–14k cafés/restaurants + thousands of barbershops/salons, many **Instagram-only**. Wix is Israeli → high DIY *awareness*, but **done-for-you** is still a gap. | Real demand for "done-for-you, already built." |
+| **Economics** | No mass email → **no email infra cost** (kills ₪60–120/mo). | Phase 0 ≈ **₪0** until someone buys (domain on conversion + Stripe only). |
+| **Compliance simplification** | In-person consent removes the UK "limited-companies-only" filter. | Pitch **any** local shop; record consent in the tracker. |
+| **Speed** | Same timezone, walk in, instant conversation, local referrals compound. | Faster learning + word-of-mouth. |
+
+**What changes vs. the UK blueprint:**
+- **Channel:** mass cold email ❌ → walk-in / phone / consented WhatsApp ✅
+- **Language & sites:** English LTR → **Hebrew, RTL**
+- **Pricing:** £ → **₪** (see `phase-0/README.md`)
+- **Compliance:** PECR (§11) → **Israeli opt-in consent captured in person** (record it)
+- **Lead source:** Companies House (§5) → **Google Maps + Instagram, in your city**
+- **Email infra (§8):** **not needed for Phase 0**
+
+**City:** start in the founder's **own city** (walk-in + referral advantage). Greater **Tel Aviv–Gush Dan**
+is the fallback for sheer density if more lead volume is needed.
+
+**Phase 0 concrete plan + all assets:** see the **`phase-0/`** and **`site/`** folders.
 
 ---
 
