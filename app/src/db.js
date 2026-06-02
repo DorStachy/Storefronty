@@ -103,6 +103,17 @@ export function openDatabase(path) {
       db.prepare('INSERT INTO events (lead_id,type,payload,created_at) VALUES (?,?,?,?)')
         .run(leadId ?? null, type, payload ? JSON.stringify(payload) : null, now()),
     eventsFor: (leadId) => db.prepare('SELECT * FROM events WHERE lead_id = ? ORDER BY id').all(leadId),
+    // How many 'error' events since the lead last changed status — the consecutive-error count the
+    // orchestrator uses to quarantine a perpetually-failing lead. Resets whenever status advances.
+    errorsSinceLastStatus(leadId) {
+      const rows = db.prepare('SELECT type FROM events WHERE lead_id = ? ORDER BY id DESC').all(leadId);
+      let n = 0;
+      for (const r of rows) {
+        if (r.type.startsWith('status:')) break;
+        if (r.type === 'error') n++;
+      }
+      return n;
+    },
 
     addSuppression: (email, reason) =>
       db.prepare('INSERT OR REPLACE INTO suppressions (email,reason,created_at) VALUES (?,?,?)')

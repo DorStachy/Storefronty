@@ -41,13 +41,23 @@ const HANDLERS = {
   },
 };
 
-// One pass over actionable leads. Safe to call repeatedly (cron tick).
-export async function tick(db) {
+// One pass over actionable leads. Safe to call repeatedly (cron tick). `handlers` is injectable for
+// testing. `errorCap`: after this many consecutive errors at the same stage, quarantine the lead to
+// needs_human instead of retrying it forever (and burning work/credits every tick).
+export async function tick(db, { handlers = HANDLERS, errorCap = 3 } = {}) {
   const acted = [];
-  for (const [status, handler] of Object.entries(HANDLERS)) {
+  for (const [status, handler] of Object.entries(handlers)) {
     for (const lead of db.listLeads(status)) {
-      try { await handler(db, lead); acted.push({ id: lead.id, status }); }
-      catch (e) { db.recordEvent(lead.id, 'error', { status, message: String(e.message || e) }); }
+      try {
+        await handler(db, lead);
+        acted.push({ id: lead.id, status });
+      } catch (e) {
+        db.recordEvent(lead.id, 'error', { status, message: String(e.message || e) });
+        if (db.errorsSinceLastStatus(lead.id) >= errorCap) {
+          db.setStatus(lead.id, 'needs_human', { reason: 'error_cap', status, lastError: String(e.message || e) });
+          acted.push({ id: lead.id, status, quarantined: true });
+        }
+      }
     }
   }
   return acted;
