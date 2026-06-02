@@ -19,8 +19,8 @@
 | **1D** Playwright screenshotter | headless render → 3 section screenshots for the email | ✅ DONE — real browser smoke |
 | **1E** Per-niche cold email | approved §5.6 copy + per-niche variants, 3 inline screenshots, CAN-SPAM | ✅ DONE — assembled email eyeballed |
 | **1F** Pipeline wiring + real send | orchestrator: fill→build→screenshot→email; real end-to-end cold-pitch send | ✅ DONE — **real send verified** (see below) |
-| **2** Reply → Opus → hosted 48h | inbox classify · Opus build · Playwright QA gate · approval endpoint · 2-link reply email · hosting adapter | ⏳ in progress |
-| **3** Portal (sell + take money) | Google auth · plans/quota · Stripe · claim-binding · dashboard | ⏳ pending |
+| **2** Reply → Opus → hosted 48h | classify · Opus rebuild · QA gate · signed approval · 48h deploy · 2-link reply email | ✅ DONE — full loop tested (189/189); Opus/Cloudflare/IMAP are key-gated seams |
+| **3** Portal (sell + take money) | claim-binding · accounts/auth · plans/quota · Stripe · dashboard | ⏳ in progress |
 
 Phases 4–7 (volume, marketing site, tier polish, autonomy) are outlined in the design spec; they depend on
 real sending infra + accounts and are scoped for after launch.
@@ -34,6 +34,17 @@ screenshots attached. **166/166 tests pass.** I ran one **real SMTP send** of Si
 exact production orchestrator — it landed in your test inbox `1dorlove1@gmail.com` (`dry:false`, messageId
 returned). The real shop is never emailed (TEST_RECIPIENT override). Three themes + the email were verified by
 me in the browser; screenshots are in the transcript.
+
+### ✅ PHASE 2 COMPLETE — the reply loop (build it, gate it, host it, hand it off)
+
+When an owner replies: rules-based compliance first (opt-out → instant suppression; angry/legal → your queue),
+otherwise it's an edit. The site is **rebuilt** applying their words (Opus when `ANTHROPIC_API_KEY` is set, a
+truthful deterministic rebuild otherwise — with edit-aware grounding so an owner *can* correct a fact but the
+model can't silently change one they didn't), passed through a **Playwright QA gate** (no broken links/images,
+no console errors, mobile-safe), then it waits for your **✅ on a signed, POST-only approve/reject link** (review
+mode). On approve it deploys for **48h** (local stub now; Cloudflare Workers seam ready) and sends the
+**two-link reply email** (the live site + a tamper-proof account-claim link that pre-binds the new account to
+his site). Cred-gated pieces (Opus, Cloudflare, IMAP polling) fall back gracefully and are flagged below.
 
 ---
 
