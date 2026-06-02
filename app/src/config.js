@@ -24,7 +24,10 @@ export const config = {
   researcher: {
     engine: E.RESEARCHER_ENGINE || 'mock',
     googleKey: E.GOOGLE_PLACES_KEY || '',
-    verify: E.RESEARCHER_VERIFY !== 'false',   // probe name-derived domains to drop shops that already have a site
+  },
+  search: {                                    // web search used for website + social discovery
+    engine: E.SEARCH_ENGINE || 'serper',
+    serperKey: E.SERPER_API_KEY || '',
   },
   mail: {
     user: E.GMAIL_USER || '',

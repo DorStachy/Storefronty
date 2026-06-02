@@ -5,6 +5,7 @@
 import { readFileSync, writeFileSync, mkdirSync, copyFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { escapeHtml, safeUrl } from '../util/html.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(here, '..', '..', '..');
@@ -41,7 +42,6 @@ DEFAULTS.restaurant = DEFAULTS.cafe;
 const slugify = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 const fill = (tpl, map) => tpl.replace(/\{\{(\w+)\}\}/g, (m, k) => (k in map ? map[k] : m));
-const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 // "Monday: 9:00 AM – 8:00 PM" -> "9:00 AM – 8:00 PM" (or "Closed"); null if that day isn't listed.
 function pickDay(weekdayDescriptions, day) {
@@ -73,20 +73,21 @@ export async function renderSite(lead, config) {
 
   // Real Google rating becomes a trust badge in the hero (empty if we have none).
   const ratingBadge = det.rating
-    ? `<div class="rating">★ ${det.rating}${det.reviewCount ? ` · ${esc(det.reviewCount)} Google reviews` : ''}</div>`
+    ? `<div class="rating">★ ${escapeHtml(det.rating)}${det.reviewCount ? ` · ${escapeHtml(det.reviewCount)} Google reviews` : ''}</div>`
     : '';
 
+  // Every interpolated value is escaped (untrusted lead fields → stored-XSS otherwise).
   const map = {
-    shopName: lead.name, city: lead.city || '', phone: lead.phone || '',
-    address: lead.address || '', instagram: lead.instagram || '#',
-    tagline, ratingBadge,
+    shopName: escapeHtml(lead.name), city: escapeHtml(lead.city || ''), phone: escapeHtml(lead.phone || ''),
+    address: escapeHtml(lead.address || ''), instagram: safeUrl(lead.instagram || '#'),
+    tagline: escapeHtml(tagline), ratingBadge,
     headlineTop: d.headlineTop, headlineBottom: d.headlineBottom,
-    hoursWeekday: weekday, hoursSat: sat, hoursSun: sun,
-    svc1Name: s[0][0], svc1Desc: s[0][1], svc1Price: s[0][2],
-    svc2Name: s[1][0], svc2Desc: s[1][1], svc2Price: s[1][2],
-    svc3Name: s[2][0], svc3Desc: s[2][1], svc3Price: s[2][2],
-    ownerEmail: config.mail?.user || 'you@storefronty.com',
-    postalAddress: config.postalAddress || '',
+    hoursWeekday: escapeHtml(weekday), hoursSat: escapeHtml(sat), hoursSun: escapeHtml(sun),
+    svc1Name: escapeHtml(s[0][0]), svc1Desc: escapeHtml(s[0][1]), svc1Price: escapeHtml(s[0][2]),
+    svc2Name: escapeHtml(s[1][0]), svc2Desc: escapeHtml(s[1][1]), svc2Price: escapeHtml(s[1][2]),
+    svc3Name: escapeHtml(s[2][0]), svc3Desc: escapeHtml(s[2][1]), svc3Price: escapeHtml(s[2][2]),
+    ownerEmail: escapeHtml(config.mail?.user || 'you@storefronty.com'),
+    postalAddress: escapeHtml(config.postalAddress || ''),
   };
   return {
     slug: slugify(lead.name) || `lead-${lead.id}`,

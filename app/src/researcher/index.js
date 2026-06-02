@@ -1,30 +1,36 @@
-// The Researcher: city + niche -> shops with NO website (the leads we want).
-// Two-stage "no website" check: (1) the engine reports no Places websiteUri, then (2) the verifier
-// probes name-derived domains to catch sites Google didn't know about.
+// The Researcher: city + niche -> shops with NO website.
+// Two-stage: (1) the engine reports candidates (Places filters its own websiteUri), then
+// (2) location-anchored web DISCOVERY confirms each truly has no site of its own.
+// Discovery only runs when a real search function is available (Serper key); otherwise we keep the
+// Places-only signal so offline/mock runs still work.
 import * as mock from './mock.js';
 import * as places from './places.js';
-import { findWebsite as defaultFindWebsite } from './verify.js';
+import { discoverWebsite } from '../discovery/index.js';
 
 const ENGINES = { mock, places };
 
-export async function research({ niche, city, limit = 20, engine = 'mock', apiKey = '', verify, findWebsite = defaultFindWebsite } = {}) {
+export async function research({ niche, city, limit = 20, engine = 'mock', apiKey = '', searchFn = null } = {}) {
   const mod = ENGINES[engine];
   if (!mod) throw new Error(`unknown researcher engine: ${engine}`);
   const found = await mod.search({ niche, city, limit, apiKey });
   const candidates = found.filter((l) => !l.hasWebsite);
 
-  const shouldVerify = verify ?? (engine === 'places');
-  if (!shouldVerify) return candidates;
+  if (!searchFn) return candidates.map((l) => ({ ...l, website_status: 'unknown' }));
 
+  const cityName = String(city || '').split(',')[0].trim();
+  const state = String(city || '').split(',')[1]?.trim() || '';
   const kept = [];
   for (const l of candidates) {
-    const url = await findWebsite(l);
-    if (url) {
-      l.hasWebsite = true;
-      l.foundWebsite = url;
-      console.log(`    ✗ skipped (already has a site): ${l.name} → ${url}`);
+    let r;
+    try {
+      r = await discoverWebsite(
+        { name: l.name, city: cityName, state, phone: l.phone, websiteUri: l.websiteUri || null },
+        { searchFn });
+    } catch { r = { status: 'UNCERTAIN' }; }
+    if (r.status === 'NO_WEBSITE') {
+      kept.push({ ...l, website_status: 'none' });
     } else {
-      kept.push(l);
+      console.log(`    ✗ ${r.status}: ${l.name}${r.website ? ` → ${r.website}` : ''}`);
     }
   }
   return kept;

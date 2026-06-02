@@ -34,6 +34,7 @@ export async function search({ niche, city, limit = 20, apiKey }) {
     phone: p.nationalPhoneNumber || null,
     email: null,
     instagram: null,
+    websiteUri: p.websiteUri || null,
     hasWebsite: !!p.websiteUri,
     vibe: p.primaryTypeDisplayName?.text || (p.types || [])[0] || niche,
     source: `places:${p.id}`,

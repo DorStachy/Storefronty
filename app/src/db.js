@@ -18,6 +18,9 @@ CREATE TABLE IF NOT EXISTS leads (
   has_website INTEGER DEFAULT 0,
   vibe TEXT,
   details TEXT,
+  website TEXT,
+  website_status TEXT,
+  socials TEXT,
   source TEXT,
   status TEXT NOT NULL DEFAULT 'discovered',
   dedup_key TEXT UNIQUE,
@@ -63,21 +66,25 @@ export function openDatabase(path) {
 
     insertLead(lead) {
       const ts = now();
-      const dedup = (lead.email || `${lead.name}|${lead.address || ''}`).toLowerCase().trim();
+      // Prefer the stable Google Place id for dedup; else email; else name|city.
+      const placeId = (lead.source || '').startsWith('places:') ? lead.source.slice(7) : '';
+      const dedup = (placeId || lead.email || `${lead.name}|${lead.city || lead.address || ''}`).toLowerCase().trim();
       const existing = db.prepare('SELECT id FROM leads WHERE dedup_key = ?').get(dedup);
       if (existing) return { id: existing.id, inserted: false };
       const info = db.prepare(`INSERT INTO leads
-        (name,niche,city,address,phone,email,instagram,has_website,vibe,details,source,status,dedup_key,created_at,updated_at)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
+        (name,niche,city,address,phone,email,instagram,has_website,vibe,details,website,website_status,socials,source,status,dedup_key,created_at,updated_at)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
         lead.name, lead.niche, lead.city ?? null, lead.address ?? null, lead.phone ?? null,
         lead.email ?? null, lead.instagram ?? null, lead.hasWebsite ? 1 : 0, lead.vibe ?? null,
-        lead.details ? JSON.stringify(lead.details) : null, lead.source ?? null, 'discovered', dedup, ts, ts);
+        lead.details ? JSON.stringify(lead.details) : null, lead.website ?? null, lead.website_status ?? null,
+        lead.socials ? JSON.stringify(lead.socials) : null, lead.source ?? null, 'discovered', dedup, ts, ts);
       const id = Number(info.lastInsertRowid);
       api.recordEvent(id, 'discovered', { source: lead.source });
       return { id, inserted: true };
     },
 
     getLead: (id) => db.prepare('SELECT * FROM leads WHERE id = ?').get(id),
+    getLeadByEmail: (email) => db.prepare('SELECT * FROM leads WHERE lower(email) = ?').get(String(email || '').toLowerCase().trim()),
     listLeads: (status) => status
       ? db.prepare('SELECT * FROM leads WHERE status = ? ORDER BY id').all(status)
       : db.prepare('SELECT * FROM leads ORDER BY id').all(),

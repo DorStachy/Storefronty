@@ -29,6 +29,13 @@ test('pricing page is personalized and points styles at ../styles.css', async ()
   assert.ok(!pricingHtml.includes('{{'));
 });
 
+test('builder escapes an untrusted shop name and neutralizes a bad instagram URL (no XSS)', async () => {
+  const { indexHtml } = await renderSite({ name: '<script>alert(1)</script>', niche: 'cafe', instagram: 'javascript:alert(1)' }, cfg);
+  assert.ok(!indexHtml.includes('<script>alert(1)'), 'raw script must not appear');
+  assert.ok(indexHtml.includes('&lt;script&gt;'), 'name is HTML-escaped');
+  assert.ok(!indexHtml.includes('javascript:alert(1)'), 'javascript: URL is neutralized');
+});
+
 test('orchestrator tick: discovered → built → deployed (+beyond), with a correct preview URL', async () => {
   const db = openDatabase(':memory:');
   const { id } = db.insertLead({ name: 'QA Tick Shop', niche: 'cafe', city: 'Austin, TX' });

@@ -7,8 +7,8 @@ import { sendColdEmail } from './salesman/index.js';
 import { config } from './config.js';
 
 // Run the researcher and persist new leads as 'discovered'. Returns a summary.
-export async function seedFromResearch(db, { niche, city, limit, engine, apiKey, verify }) {
-  const leads = await research({ niche, city, limit, engine, apiKey, verify });
+export async function seedFromResearch(db, { niche, city, limit, engine, apiKey, searchFn }) {
+  const leads = await research({ niche, city, limit, engine, apiKey, searchFn });
   let inserted = 0, skipped = 0;
   for (const lead of leads) {
     const { inserted: isNew } = db.insertLead(lead);
