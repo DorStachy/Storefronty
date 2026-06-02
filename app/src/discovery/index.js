@@ -26,7 +26,12 @@ export function parsePage(html) {
   const mapsLinks = [...s.matchAll(/https?:\/\/(?:www\.)?google\.[^"'\s]*\/maps[^"'\s]*/gi)].map((m) => m[0]);
   const placeIds = [...s.matchAll(/(ChIJ[A-Za-z0-9_-]{10,})/g)].map((m) => m[1]);
   const cids = [...s.matchAll(/[?&]cid=(\d{6,})/gi)].map((m) => m[1]);
-  return { text: s.replace(/<[^>]+>/g, ' ').toLowerCase(), tels, jsonld, mapsLinks, placeIds, cids };
+  // Cheap SPA signal: og/meta `content` attributes + <title> are often server-rendered even when
+  // the body is a JS shell, so fold them into the searchable text before any render fallback.
+  const metas = [...s.matchAll(/<meta[^>]+content=["']([^"']*)["'][^>]*>/gi)].map((m) => m[1]);
+  const titleTag = (s.match(/<title[^>]*>([\s\S]*?)<\/title>/i) || [])[1] || '';
+  const visible = s.replace(/<[^>]+>/g, ' ');
+  return { text: `${visible} ${metas.join(' ')} ${titleTag}`.toLowerCase(), tels, jsonld, mapsLinks, placeIds, cids };
 }
 
 // The shop's own Google-listing identifiers (from Places): the place_id and the decimal cid that
@@ -102,13 +107,21 @@ export function scoreCandidate(biz, cand, page) {
   return { score, ownSite: true, strong, presence: false, reasons };
 }
 
+// Does the registrable domain carry the shop's distinctive name? The cheap "this could be THEIR
+// own site" test — used to decide whether a candidate is worth an (expensive) JS render.
+const domainHasName = (name, h) => distinctiveTokens(name).some((t) => registrable(h).includes(t));
+
 // Discover and classify. searchFn(query)->[{url,title,snippet,position}]; fetchPage defaults to safeFetch.
-// cfg.onSearchError(query, err) is called per failed query (default: console.warn) so a Serper
-// outage doesn't degrade silently into UNCERTAIN noise that looks like organic uncertainty.
-export async function discoverWebsite(biz, { searchFn = null, fetchPage = safeFetch, cfg = {} } = {}) {
+// Optional `render(url,{timeoutMs})->{ok,html}` is a pluggable JS-renderer (headless browser / render
+// API). It is used ONLY as a budgeted fallback: when a candidate is plausibly the shop's own domain
+// (name token in the host) but its STATIC HTML lacks a strong anchor, we render once and re-score the
+// DOM with the SAME identity rules. cfg.onSearchError(query,err) surfaces search outages.
+export async function discoverWebsite(biz, { searchFn = null, fetchPage = safeFetch, render = null, cfg = {} } = {}) {
   const acceptScore = cfg.acceptScore ?? 6;
   const uncertainScore = cfg.uncertainScore ?? 3;
   const onSearchError = cfg.onSearchError || ((q, err) => console.warn(`[discovery] search failed for ${q}: ${err.message || err}`));
+  const onRenderError = cfg.onRenderError || ((u, err) => console.warn(`[discovery] render failed for ${u}: ${err.message || err}`));
+  let renderBudget = render ? (cfg.renderBudget ?? 1) : 0;   // at most N JS renders per discovery call
   let searchFailed = false;          // if true, we cannot claim NO_WEBSITE confidently
   const seen = new Set();
   const candidates = [];
@@ -137,7 +150,23 @@ export async function discoverWebsite(biz, { searchFn = null, fetchPage = safeFe
     const fr = await fetchPage(cand.url, { timeoutMs: cfg.timeoutMs ?? 8000 });
     if (fr?.ok && /html/i.test(fr.contentType || '')) page = parsePage(fr.body);
     else if (fr && (fr.status === 'TIMEOUT' || [403, 429, 503].includes(fr.status))) uncertain = true; // a server is there, just blocked
-    const sc = scoreCandidate(biz, cand, page);
+    let sc = scoreCandidate(biz, cand, page);
+
+    // JS-render fallback. Only when: a renderer is available + budget left, this is plausibly the
+    // shop's OWN domain, the static page didn't already strong-confirm, and it lacked the anchors a
+    // render could add (phone / back-reference). Re-score the rendered DOM with the SAME rules.
+    const lacksStrongAnchor = !sc.reasons.includes('phone') && !sc.reasons.includes('maps_backref');
+    if (renderBudget > 0 && !(sc.strong && sc.score >= acceptScore) && lacksStrongAnchor && domainHasName(biz.name, cand.host)) {
+      renderBudget--;
+      try {
+        const rr = await render(cand.url, { timeoutMs: cfg.renderTimeoutMs ?? 12000 });
+        if (rr?.ok && rr.html) {
+          const rsc = scoreCandidate(biz, cand, parsePage(rr.html));
+          if (rsc.score > sc.score) sc = rsc;
+        }
+      } catch (err) { onRenderError(cand.url, err); }
+    }
+
     if (sc.presence) { presence = true; continue; }
     if (sc.strong && sc.score >= acceptScore) { if (!best || sc.score > best.score) best = { url: cand.url, score: sc.score, reasons: sc.reasons }; }
     else if (sc.score >= uncertainScore) uncertain = true;

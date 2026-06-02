@@ -185,3 +185,62 @@ test('conflicting state in JSON-LD is penalized (a CA listing is not our TX shop
   assert.ok(!sc.strong);
   assert.ok(sc.score < 6);
 });
+
+// ─── Cheap SPA signals + pluggable JS-renderer fallback ─────────────────────────────────────
+test('parsePage surfaces og/meta + <title> content into the searchable text (cheap SPA signal)', () => {
+  const p = parsePage(`<html><head><title>Fade Theory</title>
+    <meta property="og:description" content="Barbershop at 120 E 6th St, Austin TX 78702"></head>
+    <body><div id="app"></div></body></html>`);
+  assert.match(p.text, /fade theory/);
+  assert.match(p.text, /78702/);                      // meta content reached the blob despite an empty body
+});
+
+const SPA = 'https://terriblelove.com';               // own-domain (name token), but a JS SPA
+const bizTL = { name: 'Terrible Love', city: 'Austin', state: 'TX', zip: '78702', street: '1300 E 4th St', phone: '(512) 555-0148' };
+const emptyShell = { ok: true, status: 200, contentType: 'text/html', body: '<html><body><div id="app"></div></body></html>' };
+const hydrated = '<html><body>Terrible Love — 1300 E 4th St, Austin TX 78702 <a href="tel:+15125550148">call</a></body></html>';
+
+test('renderer fallback: an empty-shell SPA on the shop\'s own domain → UNCERTAIN without render', async () => {
+  const fetchPage = async (u) => (u === SPA ? emptyShell : { ok: false, status: 'FAILED' });
+  const searchFn = async () => [{ url: SPA, title: 'Terrible Love', position: 1 }];
+  const r = await discoverWebsite(bizTL, { searchFn, fetchPage });
+  assert.equal(r.status, 'UNCERTAIN');                // static HTML carries no anchors
+});
+
+test('renderer fallback: the SAME SPA is confirmed HAS_WEBSITE once a renderer yields the DOM', async () => {
+  const fetchPage = async (u) => (u === SPA ? emptyShell : { ok: false, status: 'FAILED' });
+  const render = async (u) => (u === SPA ? { ok: true, status: 200, html: hydrated } : { ok: false });
+  const searchFn = async () => [{ url: SPA, title: 'Terrible Love', position: 1 }];
+  const r = await discoverWebsite(bizTL, { searchFn, fetchPage, render });
+  assert.equal(r.status, 'HAS_WEBSITE');              // re-scored rendered DOM, SAME identity rules
+  assert.match(r.website, /terriblelove\.com/);
+});
+
+test('renderer is NOT spent on a domain that is not plausibly the shop\'s own (budget guard)', async () => {
+  let calls = 0;
+  const render = async () => { calls++; return { ok: true, html: hydrated }; };
+  const DIR = 'https://randomdir.io/listing/x';
+  const fetchPage = async () => ({ ok: true, status: 200, contentType: 'text/html', body: '<html><body>directory</body></html>' });
+  const searchFn = async () => [{ url: DIR, title: 'A directory page', position: 1 }];
+  await discoverWebsite(bizTL, { searchFn, fetchPage, render });
+  assert.equal(calls, 0, 'no name token in the domain → not worth a render');
+});
+
+test('renderer is NOT spent when the static page already strongly confirms (budget guard)', async () => {
+  let calls = 0;
+  const render = async () => { calls++; return { ok: true, html: hydrated }; };
+  const confirmed = { ok: true, status: 200, contentType: 'text/html', body: hydrated };
+  const fetchPage = async (u) => (u === SPA ? confirmed : { ok: false });
+  const searchFn = async () => [{ url: SPA, title: 'Terrible Love', position: 1 }];
+  const r = await discoverWebsite(bizTL, { searchFn, fetchPage, render });
+  assert.equal(r.status, 'HAS_WEBSITE');
+  assert.equal(calls, 0, 'static already strong → no render needed');
+});
+
+test('a throwing renderer is caught and falls back to the static verdict', async () => {
+  const fetchPage = async (u) => (u === SPA ? emptyShell : { ok: false });
+  const render = async () => { throw new Error('chromium crashed'); };
+  const searchFn = async () => [{ url: SPA, title: 'Terrible Love', position: 1 }];
+  const r = await discoverWebsite(bizTL, { searchFn, fetchPage, render });
+  assert.equal(r.status, 'UNCERTAIN');                // render failed → same as no-render
+});
