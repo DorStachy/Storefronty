@@ -1,8 +1,13 @@
 // Moves leads along the pipeline. Seeds from research, then advances each lead through the
-// per-status handlers (build, deploy, ... more added each milestone).
+// per-status handlers. The cold-pitch funnel (corrected with the founder): build a themed demo from
+// the shop's REAL Google data → capture 3 section screenshots → send a personal email with those
+// screenshots and NO live link. The live 48h link only follows after the owner replies (Phase 2).
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
 import { research } from './researcher/index.js';
-import { build } from './builder/index.js';
-import { deploy } from './deployer/index.js';
+import { buildSiteV2 } from './builder/build2.js';
+import { fillLead } from './fill/llm.js';
+import { screenshotForEmail, shotsFromDir } from './screenshot/index.js';
 import { sendColdEmail } from './salesman/index.js';
 import { config } from './config.js';
 
@@ -17,24 +22,32 @@ export async function seedFromResearch(db, { niche, city, limit, engine, apiKey,
   return { found: leads.length, inserted, skipped };
 }
 
-// Per-status handlers, run in order each tick (more added each milestone: M3 email, ...).
+// Per-status handlers, run in order each tick.
 const HANDLERS = {
-  // M2: build the site
+  // Build the tailored demo from real Google data. Cheap-LLM fill when GEMINI_API_KEY is set,
+  // deterministic fallback otherwise (fillLead is key-gated). Niche auto-selects the theme.
   discovered: async (db, lead) => {
-    const site = await build(lead, config);
-    db.addSite(lead.id, site);
-    db.setStatus(lead.id, 'built', { slug: site.slug });
+    const site = await buildSiteV2(lead, { fill: (l) => fillLead(l) });
+    db.addSite(lead.id, { slug: site.slug, engine: site.engine, htmlPath: site.htmlPath });
+    db.setStatus(lead.id, 'built', { slug: site.slug, theme: site.renderedTheme });
   },
-  // M2: deploy to a public URL
+  // Capture the 3 section screenshots for the cold pitch (hero, services, reviews|gallery). No live
+  // deploy here — the cold email carries screenshots, not a link.
   built: async (db, lead) => {
     const site = db.getSiteForLead(lead.id);
-    const { previewUrl } = await deploy(lead, site, config);
-    db.setSitePreview(site.id, previewUrl);
-    db.setStatus(lead.id, 'deployed', { previewUrl });
+    const hasReviews = readFileSync(site.html_path, 'utf8').includes('<blockquote');
+    const shotsDir = resolve(dirname(site.html_path), 'shots');
+    const shots = await screenshotForEmail({ htmlPath: site.html_path, outDir: shotsDir, hasReviews });
+    const ok = shots.filter((s) => s.ok).length;
+    if (!ok) throw new Error('no screenshots captured');
+    db.setSiteScreenshot(site.id, shotsDir);
+    db.setStatus(lead.id, 'deployed', { shots: ok });
   },
-  // M3: send the cold email (to the test inbox in test mode)
+  // Send the personal cold email with the screenshots attached (to the test inbox in test mode).
   deployed: async (db, lead) => {
-    const r = await sendColdEmail(db, lead, config);
+    const site = db.getSiteForLead(lead.id);
+    const shots = shotsFromDir(site.screenshot_path);
+    const r = await sendColdEmail(db, lead, config, { shots });
     if (r.needsHuman) { db.setStatus(lead.id, 'needs_human', { reason: r.skipped }); return; }
     if (r.skipped) { db.recordEvent(lead.id, 'send_skipped', { reason: r.skipped }); return; }
     db.setStatus(lead.id, 'emailed', { to: r.to, dry: r.dry, id: r.id });

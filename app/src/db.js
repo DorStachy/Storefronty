@@ -164,6 +164,7 @@ export function openDatabase(path) {
 
     getSiteForLead: (leadId) => db.prepare('SELECT * FROM sites WHERE lead_id = ? ORDER BY id DESC').get(leadId),
     setSitePreview: (siteId, url) => db.prepare('UPDATE sites SET preview_url = ? WHERE id = ?').run(url, siteId),
+    setSiteScreenshot: (siteId, path) => db.prepare('UPDATE sites SET screenshot_path = ? WHERE id = ?').run(path, siteId),
 
     addMessage(leadId, m) {
       const info = db.prepare(`INSERT INTO messages (lead_id,direction,type,subject,body,provider_id,created_at)

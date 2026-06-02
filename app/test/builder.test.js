@@ -10,6 +10,7 @@ import { config } from '../src/config.js';
 // the suite NEVER performs a real SMTP send — the email step always stays a dry-run.
 config.mail.user = '';
 config.mail.pass = '';
+delete process.env.GEMINI_API_KEY; // force the deterministic fill (no network) in the tick test
 
 const cfg = { mail: { user: '' }, postalAddress: 'X LLC, Austin, TX', publicBaseUrl: 'http://localhost:4173' };
 
@@ -68,14 +69,28 @@ test('builder omits the socials section entirely when there are none', async () 
   assert.ok(!/Instagram|TikTok|Facebook/i.test(indexHtml));
 });
 
-test('orchestrator tick: discovered → built → deployed (+beyond), with a correct preview URL', async () => {
+test('orchestrator tick drives a lead through the corrected funnel (themed build → screenshots → email)', async (t) => {
+  // The built→deployed step screenshots headlessly — skip without a browser (funnel.test.js covers it too).
+  let chromium;
+  try {
+    ({ chromium } = await import('playwright'));
+    const b = await chromium.launch({ headless: true });
+    await b.close();
+  } catch (e) {
+    t.skip(`no browser: ${String(e.message || e).split('\n')[0]}`);
+    return;
+  }
   const db = openDatabase(':memory:');
-  const { id } = db.insertLead({ name: 'QA Tick Shop', niche: 'cafe', city: 'Austin, TX' });
-  await tick(db);                                         // builds, deploys, (and emails) in one pass
+  const { id } = db.insertLead({
+    name: 'QA Tick Shop', niche: 'cafe', city: 'Austin, TX', email: 'demo@local.test',
+    details: { rating: 4.6, reviewCount: 30, primaryType: 'Cafe', hours: ['Monday: 7 AM – 4 PM'] },
+  });
+  await tick(db); // builds, screenshots, and emails (dry-run) in one pass
   const site = db.getSiteForLead(id);
   assert.ok(site, 'a site row exists');
-  assert.match(site.preview_url, /qa-tick-shop\/$/);     // not "/undefined/"
-  // the lead must have advanced past build/deploy (exact end depends on email config)
+  assert.equal(site.engine, 'theme');
+  assert.ok(/qa-tick-shop/.test(site.html_path), 'html path is the slug dir'); // not "/undefined/"
+  assert.ok(site.screenshot_path, 'screenshots captured (no pre-reply preview URL)');
   assert.ok(['deployed', 'emailed', 'needs_human'].includes(db.getLead(id).status));
   db.close();
 });

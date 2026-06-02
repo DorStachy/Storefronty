@@ -4,7 +4,7 @@
 // Design: the SHOT-PLANNING is pure + offline-testable (planShots). The browser capture
 // (captureSections) is a thin integration verified by a real smoke test that skips when no
 // browser is available — so `npm test` stays green everywhere.
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, readdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -84,4 +84,15 @@ export async function captureSections({
 export async function screenshotForEmail({ htmlPath, outDir, hasReviews = false, ...opts } = {}) {
   const shots = planShots({ hasReviews });
   return captureSections({ htmlPath, outDir, shots, ...opts });
+}
+
+// Read already-captured shots back from a directory, in canonical email order (hero, services,
+// then reviews|gallery). Lets a later pipeline step (the email send) attach them without re-running
+// the browser. Returns [{ name, path }].
+export function shotsFromDir(dir) {
+  let files = [];
+  try { files = readdirSync(dir).filter((f) => f.endsWith('.png')); } catch { return []; }
+  return ['hero', 'services', 'reviews', 'gallery']
+    .filter((name) => files.includes(`${name}.png`))
+    .map((name) => ({ name, path: join(dir, `${name}.png`) }));
 }
