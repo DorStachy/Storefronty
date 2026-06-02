@@ -76,3 +76,30 @@ export async function safeFetch(rawUrl, { timeoutMs = 8000, maxBytes = 1_500_000
     return { ok: res.ok, status: res.status, finalUrl: url.toString(), host: url.hostname.replace(/^www\./, ''), contentType, body };
   }
 }
+
+// SSRF-safe POST-JSON for our own outbound API calls (e.g. the Gemini fill). Reuses the SAME
+// private/loopback/link-local guard as safeFetch, but sends a JSON body and parses a JSON reply.
+// No redirect-following (our API hosts don't 3xx); host is validated before connect. Throws on
+// network/timeout/non-2xx/parse failure so callers can fall back deterministically.
+export async function postJson(rawUrl, payload, { timeoutMs = 12000, maxBytes = 2_000_000, headers = {} } = {}) {
+  const url = new URL(rawUrl);
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') throw new Error('BAD_SCHEME');
+  if (!(await resolvesPublic(url.hostname))) throw new Error('BLOCKED_PRIVATE');
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  let res;
+  try {
+    res = await fetch(url, {
+      method: 'POST', redirect: 'manual', signal: ctrl.signal,
+      headers: { 'user-agent': UA, 'content-type': 'application/json', accept: 'application/json', ...headers },
+      body: JSON.stringify(payload),
+    });
+  } catch (e) {
+    clearTimeout(timer);
+    throw new Error(e.name === 'AbortError' ? 'TIMEOUT' : 'FAILED');
+  }
+  clearTimeout(timer);
+  if (!res.ok) throw new Error(`HTTP_${res.status}`);
+  const text = await readCapped(res, maxBytes);
+  return JSON.parse(text);
+}

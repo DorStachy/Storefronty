@@ -23,7 +23,7 @@ export async function buildSiteV2(lead, { fill = fillDeterministic } = {}) {
   // Until Luxe/Bold ship (Plan 1C), fall back to the editorial template when the requested one is absent.
   const renderedTheme = existsSync(join(THEME_DIR, requestedTheme, 'template.html')) ? requestedTheme : 'editorial';
 
-  const r = validateContract(fill(lead));
+  const r = validateContract(await fill(lead));
   if (!r.ok) throw new Error(`contract invalid: ${r.errors.join(', ')}`);
   const { html } = await renderContract(r.value, renderedTheme, { cssHref: './theme.css' });
 

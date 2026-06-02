@@ -1,8 +1,10 @@
 // lead -> ContentContract using ONLY the lead's real fields. Never invents specifics.
 import { CONTRACT_VERSION } from '../contract/contract.js';
 
-const DAY3 = { monday: 'Mon', tuesday: 'Tue', wednesday: 'Wed', thursday: 'Thu', friday: 'Fri', saturday: 'Sat', sunday: 'Sun' };
-const SERVICES = {
+// Exported so the grounding layer reuses the SAME niche whitelists (single source of truth — no
+// duplicated lists to drift). DAY3/titleCase/safeJson are shared parsing helpers.
+export const DAY3 = { monday: 'Mon', tuesday: 'Tue', wednesday: 'Wed', thursday: 'Thu', friday: 'Fri', saturday: 'Sat', sunday: 'Sun' };
+export const SERVICES = {
   barbershop: ['Haircuts', 'Fades', 'Beard Trim', 'Hot Towel Shave'],
   'nail salon': ['Manicure', 'Pedicure', 'Gel Nails', 'Nail Art'],
   'hair salon': ['Haircuts', 'Color', 'Styling', 'Blowouts'],
@@ -10,7 +12,7 @@ const SERVICES = {
   'food truck': ['Tacos', 'Sides', 'Drinks'],
   gym: ['Memberships', 'Personal Training', 'Group Classes'],
 };
-const GALLERY = {
+export const GALLERY = {
   barbershop: ['barbershop interior', 'fade haircut', 'hot towel shave', 'vintage barber chair'],
   cafe: ['cafe interior morning light', 'latte art', 'fresh pastries', 'coffee beans'],
 };
@@ -53,5 +55,5 @@ function addrLines(address, city) {
   const parts = String(address).split(',').map((s) => s.trim()).filter(Boolean);
   return parts.length > 2 ? [parts[0], parts.slice(1, 3).join(', ')] : parts.length ? parts : [city || 'Contact us'];
 }
-const titleCase = (s) => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
-const safeJson = (s) => { try { return JSON.parse(s); } catch { return {}; } };
+export const titleCase = (s) => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+export const safeJson = (s) => { try { return JSON.parse(s); } catch { return {}; } };
