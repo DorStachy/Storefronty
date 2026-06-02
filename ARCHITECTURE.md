@@ -133,8 +133,22 @@ module. No paid services required to build/test M1–M6.
 
 ---
 
-## 7. Open decisions before M1 (see chat)
+## 7. Decisions (resolved)
 
-1. **Notify/approve channel** — Slack (repo is named `beewise-slack`), email, or local dashboard first?
-2. **Test sending** — a throwaway **Gmail + app password** (real send+receive) vs. a dev mail sandbox?
-3. **Lead source now** — start on a **mock dataset** (fully local) and wire Google Places later?
+1. **Notify/approve channel → Email.** The system emails the founder a notification + the draft/before-after.
+   Approve/reject are **links in that email** that hit a small local endpoint (in the cloud later, the
+   same links hit the deployed approval service). Founder is always emailed on a new customer reply.
+2. **Test sending → a throwaway Gmail + app password.** One inbox acts as the "business" address for
+   **both** sending (SMTP) and reading replies (IMAP). Founder approval emails go to a separate
+   `FOUNDER_EMAIL`.
+3. **Lead source → Google Places API now** (real shops + website/phone). Note: Places does **not**
+   return email, so a separate email-discovery step (or manual entry) is needed before a *real* send;
+   during local e2e tests the salesman sends to your **test inbox**, so this never blocks testing.
+
+## 8. Implementation notes
+
+- **Zero runtime dependencies** for the spine: Node 22 built-ins — `node:sqlite` (DB), `--env-file`/
+  manual `.env` loader, `node:test` (tests), global `fetch` (Places). nodemailer + imapflow get added
+  only when M3/M4 need SMTP/IMAP.
+- Every module takes its `db` handle and config as arguments (dependency injection) so each is unit-testable.
+
