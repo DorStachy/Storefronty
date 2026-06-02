@@ -40,4 +40,11 @@ export const config = {
   brand: E.BRAND || 'Storefronty',
   postalAddress: E.POSTAL_ADDRESS || 'Storefronty LLC, 123 Main St, Austin, TX 78701',
   publicBaseUrl: E.PUBLIC_BASE_URL || 'http://localhost:4173',
+  // The customer portal ("our site") the reply email's account-claim link points at.
+  portalBaseUrl: E.PORTAL_BASE_URL || E.PUBLIC_BASE_URL || 'http://localhost:4173',
+  // HMAC secret for signed approve/reject + account-claim links. MUST be set in production.
+  signSecret: E.SIGN_SECRET || 'dev-sign-secret-change-me',
+  // Hosting for the post-reply 48h preview: 'local' (the static server) until Cloudflare creds land.
+  hosting: { engine: E.HOSTING_ENGINE || 'local', previewHours: Number(E.PREVIEW_HOURS) || 48 },
+  anthropic: { apiKey: E.ANTHROPIC_API_KEY || '', model: E.ANTHROPIC_MODEL || 'claude-opus-4-8' },
 };
