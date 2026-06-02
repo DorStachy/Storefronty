@@ -60,27 +60,51 @@ export function openDatabase(path) {
   db.exec('PRAGMA journal_mode = WAL;');
   db.exec(SCHEMA);
 
+  let inTx = false;          // re-entry guard for nested transaction() calls
+
   const api = {
     raw: db,
     close: () => db.close(),
 
+    // Wrap multi-step writes (lead + event, status + event, etc.) in an explicit transaction so a
+    // failure on the second statement rolls back the first — the DB never lands in a half-written
+    // state. node:sqlite has no nested-transaction sugar, so we guard re-entry: an inner call just
+    // runs the body (the outer COMMIT/ROLLBACK owns the boundary).
+    transaction(fn) {
+      if (inTx) return fn();
+      db.exec('BEGIN');
+      inTx = true;
+      try {
+        const out = fn();
+        db.exec('COMMIT');
+        return out;
+      } catch (e) {
+        try { db.exec('ROLLBACK'); } catch { /* ignore */ }
+        throw e;
+      } finally {
+        inTx = false;
+      }
+    },
+
     insertLead(lead) {
-      const ts = now();
-      // Prefer the stable Google Place id for dedup; else email; else name|city.
-      const placeId = (lead.source || '').startsWith('places:') ? lead.source.slice(7) : '';
-      const dedup = (placeId || lead.email || `${lead.name}|${lead.city || lead.address || ''}`).toLowerCase().trim();
-      const existing = db.prepare('SELECT id FROM leads WHERE dedup_key = ?').get(dedup);
-      if (existing) return { id: existing.id, inserted: false };
-      const info = db.prepare(`INSERT INTO leads
-        (name,niche,city,address,phone,email,instagram,has_website,vibe,details,website,website_status,socials,source,status,dedup_key,created_at,updated_at)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
-        lead.name, lead.niche, lead.city ?? null, lead.address ?? null, lead.phone ?? null,
-        lead.email ?? null, lead.instagram ?? null, lead.hasWebsite ? 1 : 0, lead.vibe ?? null,
-        lead.details ? JSON.stringify(lead.details) : null, lead.website ?? null, lead.website_status ?? null,
-        lead.socials ? JSON.stringify(lead.socials) : null, lead.source ?? null, 'discovered', dedup, ts, ts);
-      const id = Number(info.lastInsertRowid);
-      api.recordEvent(id, 'discovered', { source: lead.source });
-      return { id, inserted: true };
+      return api.transaction(() => {
+        const ts = now();
+        // Prefer the stable Google Place id for dedup; else email; else name|city.
+        const placeId = (lead.source || '').startsWith('places:') ? lead.source.slice(7) : '';
+        const dedup = (placeId || lead.email || `${lead.name}|${lead.city || lead.address || ''}`).toLowerCase().trim();
+        const existing = db.prepare('SELECT id FROM leads WHERE dedup_key = ?').get(dedup);
+        if (existing) return { id: existing.id, inserted: false };
+        const info = db.prepare(`INSERT INTO leads
+          (name,niche,city,address,phone,email,instagram,has_website,vibe,details,website,website_status,socials,source,status,dedup_key,created_at,updated_at)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
+          lead.name, lead.niche, lead.city ?? null, lead.address ?? null, lead.phone ?? null,
+          lead.email ?? null, lead.instagram ?? null, lead.hasWebsite ? 1 : 0, lead.vibe ?? null,
+          lead.details ? JSON.stringify(lead.details) : null, lead.website ?? null, lead.website_status ?? null,
+          lead.socials ? JSON.stringify(lead.socials) : null, lead.source ?? null, 'discovered', dedup, ts, ts);
+        const id = Number(info.lastInsertRowid);
+        api.recordEvent(id, 'discovered', { source: lead.source });
+        return { id, inserted: true };
+      });
     },
 
     getLead: (id) => db.prepare('SELECT * FROM leads WHERE id = ?').get(id),
@@ -91,12 +115,14 @@ export function openDatabase(path) {
     countByStatus: () => db.prepare('SELECT status, COUNT(*) n FROM leads GROUP BY status').all(),
 
     setStatus(id, status, payload) {
-      const lead = api.getLead(id);
-      if (!lead) throw new Error(`lead ${id} not found`);
-      assertTransition(lead.status, status);
-      db.prepare('UPDATE leads SET status = ?, updated_at = ? WHERE id = ?').run(status, now(), id);
-      api.recordEvent(id, `status:${status}`, payload);
-      return api.getLead(id);
+      return api.transaction(() => {
+        const lead = api.getLead(id);
+        if (!lead) throw new Error(`lead ${id} not found`);
+        assertTransition(lead.status, status);
+        db.prepare('UPDATE leads SET status = ?, updated_at = ? WHERE id = ?').run(status, now(), id);
+        api.recordEvent(id, `status:${status}`, payload);
+        return api.getLead(id);
+      });
     },
 
     recordEvent: (leadId, type, payload) =>
@@ -128,10 +154,12 @@ export function openDatabase(path) {
       return Number(info.lastInsertRowid);
     },
     setSocials(id, socials) {
-      db.prepare('UPDATE leads SET socials = ?, updated_at = ? WHERE id = ?')
-        .run(socials ? JSON.stringify(socials) : null, now(), id);
-      api.recordEvent(id, 'socials', socials);
-      return api.getLead(id);
+      return api.transaction(() => {
+        db.prepare('UPDATE leads SET socials = ?, updated_at = ? WHERE id = ?')
+          .run(socials ? JSON.stringify(socials) : null, now(), id);
+        api.recordEvent(id, 'socials', socials);
+        return api.getLead(id);
+      });
     },
 
     getSiteForLead: (leadId) => db.prepare('SELECT * FROM sites WHERE lead_id = ? ORDER BY id DESC').get(leadId),

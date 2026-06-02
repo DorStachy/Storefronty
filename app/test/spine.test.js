@@ -61,6 +61,37 @@ test('setSocials persists a socials object and logs an event', () => {
   db.close();
 });
 
+test('transaction(): a throw inside rolls back every write made within', () => {
+  const db = openDatabase(':memory:');
+  assert.equal(typeof db.transaction, 'function', 'db.transaction must exist');
+  const { id } = db.insertLead({ name: 'Tx Shop', niche: 'cafe' });
+  const before = db.eventsFor(id).length;
+  let writeHappened = false;
+  let caught;
+  try {
+    db.transaction(() => {
+      db.recordEvent(id, 'half_done', { x: 1 });
+      writeHappened = true;
+      throw new Error('rollback me');
+    });
+  } catch (e) { caught = e; }
+  assert.ok(writeHappened, 'inner write must have been attempted');
+  assert.match(caught?.message || '', /rollback me/);
+  assert.equal(db.eventsFor(id).length, before, 'half_done event must NOT persist after rollback');
+  db.close();
+});
+
+test('transaction(): a successful block commits and returns its value', () => {
+  const db = openDatabase(':memory:');
+  const out = db.transaction(() => {
+    const { id } = db.insertLead({ name: 'Tx OK', niche: 'cafe' });
+    return id;
+  });
+  assert.ok(out >= 1);
+  assert.ok(db.getLead(out));
+  db.close();
+});
+
 test('suppression list', () => {
   const db = openDatabase(':memory:');
   assert.equal(db.isSuppressed('a@b.com'), false);
