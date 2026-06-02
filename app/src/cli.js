@@ -30,6 +30,13 @@ switch (cmd) {
     console.log(`  found ${r.found} no-website shops · inserted ${r.inserted} new · skipped ${r.skipped} dup`);
     break;
   }
+  case 'tick': {
+    const { tick } = await import('./orchestrator.js');
+    const acted = await tick(db);
+    console.log(`ticked: advanced ${acted.length} lead(s)`);
+    for (const a of acted) console.log(`  #${a.id}  was ${a.status} → advanced`);
+    break;
+  }
   case 'leads': {
     const rows = db.listLeads(opts.status);
     for (const l of rows) console.log(`#${l.id}  [${l.status}]  ${l.niche.padEnd(10)}  ${l.name} — ${l.city || ''}`);

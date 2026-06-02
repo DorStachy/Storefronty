@@ -9,6 +9,8 @@
     "research": "node --experimental-sqlite src/cli.js research",
     "leads": "node --experimental-sqlite src/cli.js leads",
     "lead": "node --experimental-sqlite src/cli.js lead",
+    "tick": "node --experimental-sqlite src/cli.js tick",
+    "serve": "node src/server.js",
     "cli": "node --experimental-sqlite src/cli.js",
     "test": "node --experimental-sqlite --test"
   }

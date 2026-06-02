@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS leads (
 CREATE TABLE IF NOT EXISTS sites (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   lead_id INTEGER NOT NULL,
-  engine TEXT, html_path TEXT, screenshot_path TEXT, preview_url TEXT,
+  slug TEXT, engine TEXT, html_path TEXT, screenshot_path TEXT, preview_url TEXT,
   version INTEGER DEFAULT 1, created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS messages (
@@ -101,6 +101,15 @@ export function openDatabase(path) {
         .run(email.toLowerCase().trim(), reason ?? null, now()),
     isSuppressed: (email) =>
       !!db.prepare('SELECT 1 FROM suppressions WHERE email = ?').get((email || '').toLowerCase().trim()),
+
+    addSite(leadId, s) {
+      const info = db.prepare(`INSERT INTO sites (lead_id,slug,engine,html_path,screenshot_path,preview_url,version,created_at)
+        VALUES (?,?,?,?,?,?,?,?)`).run(leadId, s.slug ?? null, s.engine ?? null, s.htmlPath ?? null,
+        s.screenshotPath ?? null, s.previewUrl ?? null, s.version ?? 1, now());
+      return Number(info.lastInsertRowid);
+    },
+    getSiteForLead: (leadId) => db.prepare('SELECT * FROM sites WHERE lead_id = ? ORDER BY id DESC').get(leadId),
+    setSitePreview: (siteId, url) => db.prepare('UPDATE sites SET preview_url = ? WHERE id = ?').run(url, siteId),
   };
   return api;
 }

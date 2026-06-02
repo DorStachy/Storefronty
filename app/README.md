@@ -27,6 +27,12 @@ npm test                                                 # run the test suite
 ## Status — what's built
 
 - ✅ **M1 (spine):** SQLite DB + lead state machine + event log + suppression list + the
-  **Researcher** (mock + Google Places engines) + orchestrator seeding + CLI. 7 tests passing.
-- ⬜ M2 builder+deployer · M3 salesman (email) · M4 inbox+classifier · M5 editor+approvals ·
-  M6 end-to-end + dashboard · M7 ready-for-real. (See `../ARCHITECTURE.md` §6.)
+  **Researcher** (mock + Google Places engines) + orchestrator seeding + CLI.
+- ✅ **M2 (build + deploy):** **Builder** (lead → finished site + pricing page) + **Deployer**
+  (local URL) + orchestrator handlers `discovered → built → deployed` + `npm run serve`.
+  Verified end-to-end on real Google Places leads. **11 tests passing.**
+- ⬜ M3 salesman (email) · M4 inbox+classifier · M5 editor+approvals · M6 end-to-end + dashboard ·
+  M7 ready-for-real. (See `../ARCHITECTURE.md` §6.)
+
+Run the pipeline: `npm run research -- --niche cafe --city "Austin, TX"` then `npm run tick` then
+`npm run serve` and open the printed URL.
