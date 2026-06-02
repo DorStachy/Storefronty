@@ -3,6 +3,13 @@ import assert from 'node:assert/strict';
 import { renderSite } from '../src/builder/index.js';
 import { openDatabase } from '../src/db.js';
 import { tick } from '../src/orchestrator.js';
+import { config } from '../src/config.js';
+
+// Hermetic: the orchestrator-tick test below drives the DEFAULT handlers, whose `deployed` step
+// calls the real salesman/mailer. Clear any ambient Gmail creds (from a developer's local .env) so
+// the suite NEVER performs a real SMTP send — the email step always stays a dry-run.
+config.mail.user = '';
+config.mail.pass = '';
 
 const cfg = { mail: { user: '' }, postalAddress: 'X LLC, Austin, TX', publicBaseUrl: 'http://localhost:4173' };
 

@@ -3,6 +3,7 @@ import { config } from './config.js';
 import { openDatabase } from './db.js';
 import { seedFromResearch } from './orchestrator.js';
 import { makeSearchFn } from './search/index.js';
+import { closeMailer } from './mailer/index.js';
 
 function flags(argv) {
   const o = {};
@@ -103,4 +104,5 @@ switch (cmd) {
   lead <id>                     show one lead + its event history`);
 }
 
+closeMailer();   // close any pooled SMTP transport so the CLI exits promptly after a tick that sent
 db.close();

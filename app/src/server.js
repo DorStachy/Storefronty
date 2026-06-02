@@ -2,7 +2,7 @@
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, resolve, dirname, sep } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = resolve(here, '..', 'public');
@@ -22,7 +22,10 @@ export function resolveStaticPath(publicDir, urlRaw) {
   return full;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Run-as-main check that works on Windows too: compare against pathToFileURL(argv[1]) rather than
+// a hand-built `file://` + path string (Windows argv[1] uses backslashes + a drive letter, so the
+// naive string never matches import.meta.url and the server would silently never listen).
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   createServer(async (req, res) => {
     const filePath = resolveStaticPath(PUBLIC_DIR, req.url);
     if (!filePath) { res.writeHead(403).end('Forbidden'); return; }
