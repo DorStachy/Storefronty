@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{shopName}} · Café in {{city}}</title>
+<!--
+  DEMO TEMPLATE — Café / Restaurant (Half B). Token placeholders are filled by generator/src/generate.js.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  .hero-bg { background:
+    radial-gradient(70% 80% at 75% 15%, rgba(182,80,43,.30), transparent 60%),
+    linear-gradient(120deg, #fffaf4 25%, #f4e9da 100%); }
+  .photo-tile { background: linear-gradient(135deg, #f4e9da, #ecdcc7); border:1px dashed rgba(182,80,43,.45);
+    border-radius:14px; height:240px; display:grid; place-items:center; color:#8a7a68; text-align:center; gap:6px; }
+  .photo-tile .em { font-size:34px; }
+</style>
+{{injectHeadHtml}}
+</head>
+<body class="theme-cafe">
+
+<div class="demo-ribbon">Preview · built just for {{shopName}} — tell me one thing to change ☕</div>
+
+<nav class="nav"><div class="container">
+  <div class="brand">{{shopName}}<span>.</span></div>
+  <div class="navlinks">
+    <a href="#menu">Menu</a>
+    <a href="#gallery">Gallery</a>
+    <a href="#hours">Hours</a>
+    <a href="#contact">Contact</a>
+    <a class="btn" href="tel:{{phone}}">Reserve</a>
+  </div>
+</div></nav>
+
+<header class="hero">
+  <div class="hero-bg"></div>
+  <div class="container">
+    <div class="eyebrow">Café · {{city}}</div>
+    {{ratingBadge}}
+    <h1>{{headlineTop}}<br>{{headlineBottom}}</h1>
+    <p>{{tagline}}</p>
+    <div class="hero-actions">
+      <a class="btn" href="tel:{{phone}}">📞 Reserve a table</a>
+      <a class="btn ghost" href="#menu">See the menu</a>
+    </div>
+  </div>
+</header>
+
+<section id="menu">
+  <div class="container">
+    <div class="center" style="margin-bottom:46px">
+      <h2>From the menu</h2>
+      <p class="lead center">Made fresh every morning.</p>
+    </div>
+    <div class="grid">
+      <div class="card"><div class="icon">☕</div><h3>{{svc1Name}}</h3><p>{{svc1Desc}}</p><div class="price">${{svc1Price}}</div></div>
+      <div class="card"><div class="icon">🥐</div><h3>{{svc2Name}}</h3><p>{{svc2Desc}}</p><div class="price">${{svc2Price}}</div></div>
+      <div class="card"><div class="icon">🍳</div><h3>{{svc3Name}}</h3><p>{{svc3Desc}}</p><div class="price">${{svc3Price}}</div></div>
+    </div>
+  </div>
+</section>
+
+<section id="gallery" style="background:var(--surface)">
+  <div class="container">
+    <div class="center" style="margin-bottom:40px"><h2>Gallery</h2><p class="lead center">Real photos of your space and dishes will go here.</p></div>
+    <div class="gallery">
+      <div class="photo-tile"><span class="em">📷</span><span>Your photo here</span></div>
+      <div class="photo-tile"><span class="em">📷</span><span>Your photo here</span></div>
+      <div class="photo-tile"><span class="em">📷</span><span>Your photo here</span></div>
+    </div>
+  </div>
+</section>
+
+<section id="hours">
+  <div class="container split">
+    <div>
+      <h2>Opening hours</h2>
+      <ul class="hours-list">
+        <li><span>Mon–Fri</span><span>{{hoursWeekday}}</span></li>
+        <li><span>Saturday</span><span>{{hoursSat}}</span></li>
+        <li><span>Sunday</span><span>{{hoursSun}}</span></li>
+      </ul>
+      <a class="btn" href="tel:{{phone}}" style="margin-top:22px">📞 {{phone}}</a>
+    </div>
+    <div class="map" id="contact">🗺️ {{address}} · {{city}}</div>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    <span class="brand">{{shopName}}<span style="color:var(--accent)">.</span></span>
+    {{address}}, {{city}} · {{phone}}{{socialsHtml}}
+    <p style="margin-top:14px;opacity:.6;font-size:13px">Built with Storefronty</p>
+  </div>
+</footer>
+
+</body>
+</html>

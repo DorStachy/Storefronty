@@ -1,0 +1,38 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Email preview · Fade Theory</title>
+<style>
+ body{margin:0;background:#f1f3f4;font-family:Arial,Helvetica,sans-serif;color:#202124}
+ .frame{max-width:640px;margin:30px auto;background:#fff;border:1px solid #e0e0e0;border-radius:10px;overflow:hidden}
+ .hdr{padding:16px 22px;border-bottom:1px solid #eee}
+ .subj{font-size:20px;font-weight:600;margin:0 0 10px}
+ .meta{font-size:13px;color:#5f6368}
+ .meta b{color:#202124}
+ .body{padding:22px;font-size:15px;line-height:1.6}
+ .shot{display:block;width:100%;border:1px solid #e6e6e6;border-radius:8px;margin:14px 0}
+ .shotfallback{display:none;place-items:center;height:300px;background:#fafafa;border:1px dashed #ccc;border-radius:8px;color:#999;margin:14px 0;text-align:center}
+ .sig{color:#444}.muted{color:#80868b;font-size:12px;margin-top:18px;border-top:1px solid #eee;padding-top:12px}
+ a.btnlink{color:#1a73e8;text-decoration:none}
+ .tag{display:inline-block;background:#e8f0fe;color:#1967d2;font-size:11px;font-weight:700;padding:3px 8px;border-radius:6px;margin-bottom:10px}
+</style></head><body>
+<div class="frame">
+  <div class="hdr">
+    <span class="tag">EMAIL 1 · DAY 0 — PREVIEW ONLY (nothing is sent)</span>
+    <p class="subj">a website for Fade Theory 👀</p>
+    <div class="meta"><b>Michael</b> &lt;hello@storefronty.com&gt; &nbsp;→&nbsp; Marcus &lt;hello@fadetheory.example&gt;</div>
+  </div>
+  <div class="body">
+    <p>Hi Marcus,</p>
+    <p>I noticed Fade Theory doesn't have a website yet — so I went ahead and built you one. Here's a peek:</p>
+    <a href="./index.html"><img class="shot" src="./screenshot.png" alt="Fade Theory website preview"
+       onerror="this.style.display='none';this.nextElementSibling.style.display='grid'"></a>
+    <div class="shotfallback">📷 screenshot.png — run <code>npm run screenshot</code> to generate it<br>(click to open the live site)</div>
+    <p>It's a real, working site, not a mockup. Tell me <b>one thing</b> you'd change — different photos,
+       your hours, a section about skin fades — and I'll make the change and send you the live link.</p>
+    <p>No catch, nothing to pay to look. Just reply and tell me what you'd tweak 🙂</p>
+    <p class="sig">Michael<br><i>Storefronty — websites for local businesses</i></p>
+    <p style="margin-top:14px"><a class="btnlink" href="./index.html">▶ Open the live preview</a> &nbsp;·&nbsp; <a class="btnlink" href="./pricing.html">▶ Open the "make it yours" page</a></p>
+    <div class="muted">Storefronty LLC, 123 Main St, Austin, TX 78701 · <a href="#unsubscribe">Unsubscribe</a></div>
+  </div>
+</div>
+</body></html>

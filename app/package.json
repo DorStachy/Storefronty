@@ -1,0 +1,20 @@
+{
+  "name": "storefronty-app",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Autonomous outreach + site-building pipeline. Spine: SQLite DB + orchestrator + modules. Zero runtime deps (Node 22 built-ins).",
+  "scripts": {
+    "init": "node --experimental-sqlite src/cli.js init",
+    "research": "node --experimental-sqlite src/cli.js research",
+    "leads": "node --experimental-sqlite src/cli.js leads",
+    "lead": "node --experimental-sqlite src/cli.js lead",
+    "tick": "node --experimental-sqlite src/cli.js tick",
+    "serve": "node src/server.js",
+    "cli": "node --experimental-sqlite src/cli.js",
+    "test": "node --experimental-sqlite --test"
+  },
+  "dependencies": {
+    "nodemailer": "^6.10.1"
+  }
+}
