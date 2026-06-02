@@ -5,10 +5,19 @@
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { research } from './researcher/index.js';
-import { buildSiteV2 } from './builder/build2.js';
+import { buildSiteV2, writeSite } from './builder/build2.js';
 import { fillLead } from './fill/llm.js';
+import { fillDeterministic } from './fill/deterministic.js';
+import { applyOpusEdit } from './fill/opus.js';
 import { screenshotForEmail, shotsFromDir } from './screenshot/index.js';
+import { qaCheck } from './qa/index.js';
+import { deploy } from './deployer/index.js';
+import { classify } from './classifier/index.js';
 import { sendColdEmail } from './salesman/index.js';
+import { composeReplyEmail, claimUrl } from './salesman/replyEmail.js';
+import { composeFounderApproval, notifyFounder } from './notifier/index.js';
+import { sendEmail } from './mailer/index.js';
+import { canTransition } from './states.js';
 import { config } from './config.js';
 
 // Run the researcher and persist new leads as 'discovered'. Returns a summary.
@@ -20,6 +29,44 @@ export async function seedFromResearch(db, { niche, city, limit, engine, apiKey,
     isNew ? inserted++ : skipped++;
   }
   return { found: leads.length, inserted, skipped };
+}
+
+// The most recent change the owner asked for (recorded by handleReply), for the reply email summary.
+function latestChange(db, leadId) {
+  const evs = db.eventsFor(leadId).filter((e) => e.type === 'edit_request');
+  if (!evs.length) return '';
+  try { return JSON.parse(evs[evs.length - 1].payload)?.change || ''; } catch { return ''; }
+}
+
+// Route an inbound reply: rules-based compliance first (opt-out/angry), then edit vs noop. An
+// edit advances the lead to 'replied' so the tick handlers rebuild→QA→approval. Hard opt-out is
+// instant + deterministic — never trusted to an LLM. Returns { intent, change }.
+export async function handleReply(db, lead, text) {
+  const { intent, change } = classify(text);
+  db.addMessage(lead.id, { direction: 'in', type: 'reply', subject: intent, body: text });
+
+  if (intent === 'opt_out') {
+    const addr = lead.email || config.mail.testRecipient;
+    if (addr) db.addSuppression(addr, 'opt_out');
+    if (canTransition(lead.status, 'opted_out')) db.setStatus(lead.id, 'opted_out', { via: 'reply' });
+    return { intent };
+  }
+  if (intent === 'angry') {
+    if (canTransition(lead.status, 'needs_human')) db.setStatus(lead.id, 'needs_human', { reason: 'angry' });
+    return { intent };
+  }
+  if (intent === 'question') {
+    if (canTransition(lead.status, 'needs_human')) db.setStatus(lead.id, 'needs_human', { reason: 'pricing_question' });
+    return { intent };
+  }
+  if (intent === 'auto_reply' || intent === 'other') {
+    db.recordEvent(lead.id, 'reply_noop', { intent });
+    return { intent };
+  }
+  // edit_request
+  db.recordEvent(lead.id, 'edit_request', { change });
+  if (canTransition(lead.status, 'replied')) db.setStatus(lead.id, 'replied', { change });
+  return { intent, change };
 }
 
 // Per-status handlers, run in order each tick.
@@ -51,6 +98,42 @@ const HANDLERS = {
     if (r.needsHuman) { db.setStatus(lead.id, 'needs_human', { reason: r.skipped }); return; }
     if (r.skipped) { db.recordEvent(lead.id, 'send_skipped', { reason: r.skipped }); return; }
     db.setStatus(lead.id, 'emailed', { to: r.to, dry: r.dry, id: r.id });
+  },
+
+  // The owner replied with a change → rebuild the real site via Opus (deterministic fallback without
+  // a key), gate it through Playwright QA, then route to founder approval (review mode) or straight
+  // to approved (auto mode). A QA failure quarantines to needs_human rather than shipping broken.
+  replied: async (db, lead) => {
+    const change = latestChange(db, lead.id);
+    const contract = await applyOpusEdit(lead, { baseContract: fillDeterministic(lead), change });
+    const built = await writeSite(lead, contract);
+    const qa = await qaCheck({ htmlPath: built.htmlPath });
+    if (!qa.ok) { db.setStatus(lead.id, 'needs_human', { reason: 'qa_failed', issues: qa.issues.map((i) => i.type) }); return; }
+    db.addSite(lead.id, { slug: built.slug, engine: built.engine, htmlPath: built.htmlPath });
+    // Rebuild succeeded → advance through 'editing' (the state machine's edit edge) to the approval
+    // gate. Transition only now (not before the work) so a mid-rebuild failure leaves the lead on
+    // 'replied' to retry, never stranded on 'editing' with no handler.
+    db.setStatus(lead.id, 'editing', { change });
+    if (config.mode === 'auto') { db.setStatus(lead.id, 'approved', { change }); return; }
+    const previewPath = `${(config.publicBaseUrl || '').replace(/\/$/, '')}/${built.slug}/`;
+    await notifyFounder(composeFounderApproval(lead, { change, previewPath, config }), config);
+    db.setStatus(lead.id, 'pending_approval', { change });
+  },
+
+  // Founder approved (via the signed endpoint or the CLI) → deploy the site live for 48h and send the
+  // two-link reply email (live site + signed account-claim link).
+  approved: async (db, lead) => {
+    const site = db.getSiteForLead(lead.id);
+    const { previewUrl, expiresAt } = await deploy(lead, site, config);
+    db.setSiteLive(site.id, { previewUrl, expiresAt });
+    const recipient = config.mail.testRecipient || lead.email;
+    if (!recipient) { db.setStatus(lead.id, 'needs_human', { reason: 'no recipient for reply email' }); return; }
+    const { subject, text, html } = composeReplyEmail(lead, {
+      siteUrl: previewUrl, claimUrl: claimUrl(lead, config), changeSummary: latestChange(db, lead.id), config,
+    });
+    const res = await sendEmail({ to: recipient, subject, html, text }, config);
+    db.addMessage(lead.id, { direction: 'out', type: 'email2', subject, body: text, providerId: res.id });
+    db.setStatus(lead.id, 'link_sent', { to: recipient, dry: res.dry, id: res.id, expiresAt });
   },
 };
 

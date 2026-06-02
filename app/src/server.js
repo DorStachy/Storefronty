@@ -3,6 +3,9 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, resolve, dirname, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { openDatabase } from './db.js';
+import { config } from './config.js';
+import { handleApproval } from './approval/index.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = resolve(here, '..', 'public');
@@ -26,7 +29,15 @@ export function resolveStaticPath(publicDir, urlRaw) {
 // a hand-built `file://` + path string (Windows argv[1] uses backslashes + a drive letter, so the
 // naive string never matches import.meta.url and the server would silently never listen).
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+  const db = openDatabase(config.dbPath);
   createServer(async (req, res) => {
+    let urlPath = req.url;
+    try { urlPath = new URL(req.url, `http://localhost:${PORT}`).pathname; } catch { /* keep raw */ }
+
+    // Signed approve/reject endpoint (§6.5): GET shows a confirm page, POST performs the action.
+    const ap = handleApproval({ method: req.method, urlPath, db, config });
+    if (ap) { res.writeHead(ap.status, { 'Content-Type': ap.contentType }); res.end(ap.body); return; }
+
     const filePath = resolveStaticPath(PUBLIC_DIR, req.url);
     if (!filePath) { res.writeHead(403).end('Forbidden'); return; }
     try {

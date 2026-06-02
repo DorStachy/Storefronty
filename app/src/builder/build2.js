@@ -18,12 +18,14 @@ const slugify = (s) =>
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '');
 
-export async function buildSiteV2(lead, { fill = fillDeterministic } = {}) {
-  const requestedTheme = themeForNiche(lead.niche);
-  // Until Luxe/Bold ship (Plan 1C), fall back to the editorial template when the requested one is absent.
+// Render an already-built contract into the niche theme and write the files. Shared by buildSiteV2
+// (fresh build from a fill) and the Phase-2 reply-edit flow (an Opus-revised contract).
+export async function writeSite(lead, contract, { theme } = {}) {
+  const requestedTheme = theme || themeForNiche(lead.niche);
+  // Fall back to the editorial template if the requested theme isn't built (defensive; all 3 ship).
   const renderedTheme = existsSync(join(THEME_DIR, requestedTheme, 'template.html')) ? requestedTheme : 'editorial';
 
-  const r = validateContract(await fill(lead));
+  const r = validateContract(contract);
   if (!r.ok) throw new Error(`contract invalid: ${r.errors.join(', ')}`);
   const { html } = await renderContract(r.value, renderedTheme, { cssHref: './theme.css' });
 
@@ -35,4 +37,8 @@ export async function buildSiteV2(lead, { fill = fillDeterministic } = {}) {
   writeFileSync(htmlPath, html);
 
   return { engine: 'theme', slug, requestedTheme, renderedTheme, theme: renderedTheme, htmlPath };
+}
+
+export async function buildSiteV2(lead, { fill = fillDeterministic } = {}) {
+  return writeSite(lead, await fill(lead));
 }

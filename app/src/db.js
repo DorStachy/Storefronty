@@ -59,6 +59,9 @@ export function openDatabase(path) {
   const db = new DatabaseSync(path);
   db.exec('PRAGMA journal_mode = WAL;');
   db.exec(SCHEMA);
+  // Lightweight migration: the 48h preview expiry column (added Phase 2). IF NOT EXISTS has no
+  // column form in sqlite, so guard the ALTER and ignore "duplicate column" on already-migrated DBs.
+  try { db.exec('ALTER TABLE sites ADD COLUMN expires_at TEXT'); } catch { /* column already present */ }
 
   let inTx = false;          // re-entry guard for nested transaction() calls
 
@@ -165,6 +168,9 @@ export function openDatabase(path) {
     getSiteForLead: (leadId) => db.prepare('SELECT * FROM sites WHERE lead_id = ? ORDER BY id DESC').get(leadId),
     setSitePreview: (siteId, url) => db.prepare('UPDATE sites SET preview_url = ? WHERE id = ?').run(url, siteId),
     setSiteScreenshot: (siteId, path) => db.prepare('UPDATE sites SET screenshot_path = ? WHERE id = ?').run(path, siteId),
+    // Mark a site live at a public URL with an expiry (the 48h preview window).
+    setSiteLive: (siteId, { previewUrl, expiresAt }) =>
+      db.prepare('UPDATE sites SET preview_url = ?, expires_at = ? WHERE id = ?').run(previewUrl, expiresAt ?? null, siteId),
 
     addMessage(leadId, m) {
       const info = db.prepare(`INSERT INTO messages (lead_id,direction,type,subject,body,provider_id,created_at)
