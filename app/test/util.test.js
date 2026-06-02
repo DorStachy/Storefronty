@@ -8,9 +8,11 @@ test('phone helpers', () => {
   assert.equal(areaCode('+1 (512) 555-0199'), '512');
 });
 
-test('distinctiveTokens drops generic category words', () => {
+test('distinctiveTokens drops generic category words (incl. food) and ≤2-char tokens', () => {
   assert.deepEqual(distinctiveTokens('Cielito Lindo Cafe'), ['cielito', 'lindo']);
   assert.deepEqual(distinctiveTokens("Fade Theory Barbershop"), ['fade', 'theory']);
+  assert.deepEqual(distinctiveTokens('Tacos El Guero'), ['guero']);          // "tacos" generic, "el" too short
+  assert.deepEqual(distinctiveTokens('AB Fadez'), ['fadez']);                // "ab" dropped (≤2 chars)
 });
 
 test('host + registrable', () => {

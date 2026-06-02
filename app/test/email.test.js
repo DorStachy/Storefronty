@@ -68,6 +68,21 @@ test('scoreEmail: name-only with no location and a generic domain is NOT enough'
   assert.ok(!sc.accept);
 });
 
+test('extractEmails sanitizes trailing junk (the mapquest backslash bug)', () => {
+  assert.deepEqual(extractEmails('contact <a href="mailto:help@mapquest.com\\\\\\">x</a>'), ['help@mapquest.com']);
+});
+
+test('scoreEmail: a generic niche word in a 3rd-party domain is NOT the shop (the apporder/tacos bug)', () => {
+  const tacos = { name: 'Tacos El Guero', city: 'San Marcos', state: 'TX', phone: '(512) 555-0001' };
+  const sc = scoreEmail(tacos, 'mifavorito@apporder777minitacos.com', 'Tacos El Guero · (512) 555-0001 · order online');
+  assert.ok(!sc.accept, '"tacos" is generic — an ordering domain is not the shop\'s own email');
+});
+
+test('scoreEmail: a mapquest (aggregator) address is rejected once sanitized', () => {
+  const sc = scoreEmail({ name: 'El Patroncito', city: 'San Marcos', state: 'TX' }, 'help@mapquest.com', 'El Patroncito San Marcos');
+  assert.ok(!sc.accept);
+});
+
 test('discoverEmail: finds + verifies an email from a fetched contact page (mailto + phone)', async () => {
   const PAGE = 'https://listing.example/cielito';
   const searchFn = async () => ({ organic: [{ url: PAGE, title: 'Cielito Lindo Cafe', snippet: 'contact info', position: 1 }] });

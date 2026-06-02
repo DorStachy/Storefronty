@@ -28,13 +28,16 @@ const isJunkEmail = (e) => {
   return JUNK_LOCAL.test(local) || JUNK_DOMAIN.test(domain);
 };
 
-// Emails from free text + mailto: links, lowercased + deduped.
+// Emails from free text + mailto: links, lowercased + deduped. Every candidate is re-validated
+// against EMAIL_RE so trailing junk (e.g. "help@mapquest.com\\\") is stripped to the real address.
 export function extractEmails(text) {
   const s = String(text || '');
-  const set = new Set();
-  for (const m of s.matchAll(/mailto:([^"'?>\s]+)/gi)) { try { set.add(decodeURIComponent(m[1]).toLowerCase()); } catch { set.add(m[1].toLowerCase()); } }
-  for (const m of s.matchAll(EMAIL_RE)) set.add(m[0].toLowerCase());
-  return [...set];
+  const raw = new Set();
+  for (const m of s.matchAll(/mailto:([^"'?>\s]+)/gi)) { try { raw.add(decodeURIComponent(m[1])); } catch { raw.add(m[1]); } }
+  for (const m of s.matchAll(EMAIL_RE)) raw.add(m[0]);
+  const clean = new Set();
+  for (const r of raw) { const m = String(r).match(EMAIL_RE); if (m) clean.add(m[0].toLowerCase()); }
+  return [...clean];
 }
 
 // A "City, ST" that isn't ours (and our city absent) → a different shop's page.
@@ -70,12 +73,15 @@ export function scoreEmail(identity, email, context = '') {
   if (identity.city && blob.includes(String(identity.city).toLowerCase())) { score += 1; reasons.push('city'); }
   if (locationConflict(identity, blob)) { score -= 5; reasons.push('-conflict_city'); }
 
+  // A shop's own address is either on a domain carrying THEIR distinctive name, or on free webmail.
+  // A generic/role address on a THIRD-PARTY business domain (ordering/booking/listing platforms like
+  // apporder…minitacos.com) is NOT theirs — even with the phone on the same page. So phone/name+city
+  // only elevate a free-mail (or own-name-domain) address; everything else stays rejected.
   const conflicted = reasons.includes('-conflict_city');
-  const strong = reasons.includes('domain_name') || reasons.includes('local_name') || reasons.includes('phone');
+  const ownName = reasons.includes('domain_name');
   let confidence = 'none';
-  if (!conflicted && strong) confidence = 'high';
-  // The weaker name+city path only counts for a free-mail address — a generic address on a random
-  // business domain (co-occurring in a directory) is not confidently the shop's.
+  if (!conflicted && ownName) confidence = 'high';
+  else if (!conflicted && freeMail && (reasons.includes('local_name') || reasons.includes('phone'))) confidence = 'high';
   else if (!conflicted && freeMail && reasons.includes('name') && reasons.includes('city')) confidence = 'medium';
   return { accept: confidence !== 'none', confidence, score, reasons };
 }

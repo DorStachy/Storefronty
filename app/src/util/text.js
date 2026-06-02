@@ -13,8 +13,14 @@ export function registrable(h) {
   return parts.length <= 2 ? parts.join('.') : parts.slice(-2).join('.');
 }
 
-const STOP = new Set(['the', 'a', 'an', 'and', 'of', 'llc', 'inc', 'co', 'ltd', 'corp']);
-const GENERIC = new Set(['barber', 'barbershop', 'salon', 'cafe', 'coffee', 'restaurant', 'kitchen', 'bar', 'shop', 'beauty', 'hair', 'nails', 'nail', 'spa', 'grill', 'bakery', 'studio', 'house']);
+const STOP = new Set(['the', 'a', 'an', 'and', 'of', 'llc', 'inc', 'co', 'ltd', 'corp', 'el', 'la', 'los', 'las', 'de']);
+const GENERIC = new Set(['barber', 'barbershop', 'salon', 'cafe', 'coffee', 'restaurant', 'kitchen', 'bar', 'shop',
+  'beauty', 'hair', 'nails', 'nail', 'spa', 'grill', 'bakery', 'studio', 'house',
+  // food / category descriptors — generic for the niche, not a shop's distinctive name
+  'taco', 'tacos', 'taqueria', 'pizza', 'pizzeria', 'burger', 'burgers', 'deli', 'diner', 'donut', 'donuts',
+  'bbq', 'barbecue', 'eatery', 'bistro', 'pub', 'juice', 'smoothie', 'wings', 'sushi', 'ramen', 'pho', 'noodle',
+  'noodles', 'seafood', 'market', 'food', 'truck', 'catering', 'mexican', 'chinese', 'thai', 'italian', 'asian',
+  'tea', 'boba', 'gorditas']);
 
 export function normalizeName(s) {
   return String(s ?? '').toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '')
@@ -23,7 +29,9 @@ export function normalizeName(s) {
 export function nameTokens(s, { keepGeneric = true } = {}) {
   return normalizeName(s).split(' ').filter((t) => t && !STOP.has(t) && (keepGeneric || !GENERIC.has(t)));
 }
-export const distinctiveTokens = (s) => nameTokens(s, { keepGeneric: false });
+// Distinctive tokens identify the SPECIFIC shop: drop stopwords, generic category words, and
+// ≤2-char fragments (too common to anchor identity — they cause false domain/handle matches).
+export const distinctiveTokens = (s) => nameTokens(s, { keepGeneric: false }).filter((t) => t.length >= 3);
 
 // fraction of distinctive business-name tokens present in the given haystacks (0..1)
 export function nameCoverage(name, ...haystacks) {
