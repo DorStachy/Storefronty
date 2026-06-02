@@ -6,6 +6,22 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { openDatabase } from './db.js';
 import { config } from './config.js';
 import { handleApproval } from './approval/index.js';
+import { isPortalRoute, handlePortal, handleStripeWebhook } from './portal/index.js';
+
+// Minimal request IO helpers for the portal (form POSTs + cookie sessions).
+const readBody = (req) =>
+  new Promise((resolve) => {
+    let d = '';
+    req.on('data', (c) => { d += c; if (d.length > 1_000_000) req.destroy(); });
+    req.on('end', () => resolve(d));
+    req.on('error', () => resolve(''));
+  });
+const parseForm = (s) => { const o = {}; for (const [k, v] of new URLSearchParams(s)) o[k] = v; return o; };
+const parseCookies = (h) => {
+  const o = {};
+  String(h || '').split(';').forEach((p) => { const i = p.indexOf('='); if (i > 0) o[p.slice(0, i).trim()] = decodeURIComponent(p.slice(i + 1).trim()); });
+  return o;
+};
 
 const here = dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = resolve(here, '..', 'public');
@@ -31,8 +47,21 @@ export function resolveStaticPath(publicDir, urlRaw) {
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   const db = openDatabase(config.dbPath);
   createServer(async (req, res) => {
-    let urlPath = req.url;
-    try { urlPath = new URL(req.url, `http://localhost:${PORT}`).pathname; } catch { /* keep raw */ }
+    let urlPath = req.url, query = {};
+    try { const u = new URL(req.url, `http://localhost:${PORT}`); urlPath = u.pathname; query = Object.fromEntries(u.searchParams); } catch { /* keep raw */ }
+
+    // Stripe webhook needs the RAW body for signature verification.
+    if (urlPath === '/stripe/webhook' && req.method === 'POST') {
+      const r = await handleStripeWebhook({ rawBody: await readBody(req), signature: req.headers['stripe-signature'] || '', db, config });
+      res.writeHead(r.status, { 'Content-Type': 'text/plain' }); res.end(r.body); return;
+    }
+
+    // The customer portal (§7): claim → account → dashboard → plan → changes.
+    if (isPortalRoute(urlPath)) {
+      const body = req.method === 'POST' ? parseForm(await readBody(req)) : {};
+      const out = await handlePortal({ method: req.method, path: urlPath, query, body, cookies: parseCookies(req.headers.cookie), db, config });
+      if (out) { res.writeHead(out.status, out.headers); res.end(out.body); return; }
+    }
 
     // Signed approve/reject endpoint (§6.5): GET shows a confirm page, POST performs the action.
     const ap = handleApproval({ method: req.method, urlPath, db, config });
