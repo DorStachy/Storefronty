@@ -1,42 +1,59 @@
 # Storefronty — Business Blueprint
 
-> **Status:** Design + research complete. **Market pivoted to Israel (see §0).** Phase 0 build in progress.
+> **Status:** Design + research complete. **Launch market: United States (see §0).** Phase 0 build in progress.
 > **Last updated:** 2026-06-02
 > **Founder / sender identity:** Michael Gabay
-> **Working name:** Storefronty *(verify `.com` / `.co.il` availability + trademark before buying)*
+> **Working name:** Storefronty *(verify `.com` availability + trademark before buying)*
 
 ---
 
-## 0. MARKET DECISION (FINAL) — Israel, Hebrew, hyper-local
+## 0. MARKET DECISION (FINAL) — United States, English, cold email
 
-> ⚠️ **This section overrides the UK assumptions in §3, §8, §11 below.** Those sections remain
-> as the *future-expansion* (English-market) playbook, but the **launch market is Israel.**
+> ✅ **This is the launch market.** The UK/PECR specifics elsewhere in this doc become the
+> *secondary-expansion* playbook. (An earlier Israel-local idea was researched and **rejected** —
+> see "Markets considered & rejected" below.)
 
-**Decision:** Launch **hyper-local in Israel, in Hebrew, in the founder's own city**, using
-**in-person + relationship outreach** (walk-in, personal phone call, then consented WhatsApp/email) —
-**NOT mass cold email.**
+**Decision:** Launch in the **United States**, in **English**, via **cold B2B email**: silently build a
+site for local independent businesses that have **no website**, pitch it with a screenshot, let them
+reshape it for free, then sell a low-cost **done-for-you monthly subscription** with unlimited changes.
+All customer-facing copy (emails + sites) is **AI-written at native quality** and the founder works
+**async by email** (no live phone calls) — so the founder's non-native English is **not** a blocker.
 
-**Why (evidence-backed, June 2026 research):**
+**Why — the deep-research scorecard (June 2026). Cold-email legality is a pass/fail gate first:**
 
-| Factor | Finding | Implication |
-|---|---|---|
-| **Legal channel** | Israel Amendment 40 §30A is strict **opt-in**: no commercial email/SMS/WhatsApp/robocall without **prior written consent**. Statutory damages **up to ₪1,000/message, no proof of damage, class-action-enabled**; criminal fines up to ~₪202,000. Personal phone calls & in-person are **not** covered, and you **may ask a business** if it wants info. | **Mass cold email is off the table.** Channel = human/local. This is also the *best* concierge channel. |
-| **Trust** | Concierge sale lives on trust; founder is native Hebrew, non-native English. | Local Hebrew + face-to-face beats a foreign-name English cold email (reads as scam). |
-| **Market gap** | Israel ranks **low** on SMB website penetration (OECD 2022); ~10–14k cafés/restaurants + thousands of barbershops/salons, many **Instagram-only**. Wix is Israeli → high DIY *awareness*, but **done-for-you** is still a gap. | Real demand for "done-for-you, already built." |
-| **Economics** | No mass email → **no email infra cost** (kills ₪60–120/mo). | Phase 0 ≈ **₪0** until someone buys (domain on conversion + Stripe only). |
-| **Compliance simplification** | In-person consent removes the UK "limited-companies-only" filter. | Pitch **any** local shop; record consent in the tracker. |
-| **Speed** | Same timezone, walk in, instant conversation, local referrals compound. | Faster learning + word-of-mouth. |
+| Factor | 🇺🇸 USA | 🇬🇧 UK | 🇨🇦/🇦🇺/🇩🇪/🇮🇱 |
+|---|---|---|---|
+| **Cold B2B email legal?** (gate) | ✅ **Opt-out, all businesses** (CAN-SPAM) | ⚠️ Opt-out **only for limited companies**; sole traders excluded | ❌ Opt-**in** → disqualified |
+| **No-website market** | ✅ **~9–10M** firms (~151k barbershops, ~444k salons/spas, ~725k food-service) | ~1.7M (32% gap) | smaller / blocked |
+| **Willingness to pay** | ✅ **Highest**; done-for-you market is **$99–449/mo** → we look like a steal | lower nominal (£ stronger) | n/a |
+| **Competition headroom** | ✅ **Thin** cheap-DFY supply (UENI ≈ only national player) | ❌ **Red ocean** (£29/mo agencies everywhere) | growth but blocked/small |
+| **Ops** | ✅ no real blockers | same | same |
 
-**What changes vs. the UK blueprint:**
-- **Channel:** mass cold email ❌ → walk-in / phone / consented WhatsApp ✅
-- **Language & sites:** English LTR → **Hebrew, RTL**
-- **Pricing:** £ → **₪** (see `phase-0/README.md`)
-- **Compliance:** PECR (§11) → **Israeli opt-in consent captured in person** (record it)
-- **Lead source:** Companies House (§5) → **Google Maps + Instagram, in your city**
-- **Email infra (§8):** **not needed for Phase 0**
+**Two findings sink the UK for our exact niche:** (1) the UK **can't legally cold-email sole traders**,
+and most indie cafés/barbershops *are* sole traders; (2) the UK **cheap done-for-you space is saturated**
+(£29/mo is table stakes), while the US sub-$50 demo-first lane is nearly empty.
 
-**City:** start in the founder's **own city** (walk-in + referral advantage). Greater **Tel Aviv–Gush Dan**
-is the fallback for sheer density if more lead volume is needed.
+**The one operational catch (and the fix):** Stripe does **not** natively support Israel. Clean fix —
+**form a US LLC** (~$few-hundred via doola/Firstbase). That one move delivers three things: ✅ native
+Stripe, ✅ the **US postal address CAN-SPAM legally requires** in every email, ✅ trust ("a real US
+company"). *Alternative:* Paddle / Lemon Squeezy (Merchant-of-Record) accept Israeli sellers and handle
+US sales tax — near-zero setup, slightly higher fees.
+
+**CAN-SPAM checklist (every email):** accurate From/headers · non-deceptive subject · valid **physical
+postal address** · clear **working unsubscribe** honored within 10 business days. No prior consent
+needed; no recipient class-action. Penalty up to ~$53k/email if you ignore the rules — trivial to comply.
+
+**Confidence: High. Biggest risk:** DIY commoditization (US builders are dirt-cheap + AI-powered). The
+counter: **28% still have no site after a decade of cheap DIY** — proving they'll never self-serve.
+Demo-first ("here's yours, already built") + done-for-you ("you touch nothing") is the wedge.
+
+**What changed vs. the original UK blueprint below:** market UK → **US**; pricing **£ → $** (Starter
+$29 / Pro $49 / Premium $99 — Pro = half of Hibu's $99 floor); compliance **PECR → CAN-SPAM**; add the
+**US-LLC / Stripe** step; lead source **Companies House → Google Maps + business-email finding** (no
+ltd-company filter needed in the US).
+
+**Markets considered & rejected:** Israel (opt-in spam law kills cold email; small market) · UK (sole-trader
+ban + saturated cheap-DFY) · Canada/Australia/Germany (opt-in). Sources captured in the Phase 0 research notes.
 
 **Phase 0 concrete plan + all assets:** see the **`phase-0/`** and **`site/`** folders.
 
