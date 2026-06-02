@@ -36,6 +36,31 @@ test('builder escapes an untrusted shop name and neutralizes a bad instagram URL
   assert.ok(!indexHtml.includes('javascript:alert(1)'), 'javascript: URL is neutralized');
 });
 
+test('builder renders a "Check our socials" section from verified socials (escaped + URL-validated)', async () => {
+  const lead = { name: 'Fade Theory', niche: 'barbershop',
+    socials: { instagram: 'https://instagram.com/fadetheory', tiktok: 'https://tiktok.com/@fadetheory' } };
+  const { indexHtml } = await renderSite(lead, cfg);
+  assert.ok(indexHtml.includes('https://instagram.com/fadetheory'));
+  assert.ok(indexHtml.includes('https://tiktok.com/@fadetheory'));
+  assert.ok(/Instagram/i.test(indexHtml) && /TikTok/i.test(indexHtml));
+  assert.ok(!indexHtml.includes('{{socialsHtml}}'));
+  assert.ok(!indexHtml.includes('{{instagram}}'));        // old placeholder fully replaced
+});
+
+test('builder socials section: tolerates JSON-string socials and neutralizes a bad URL', async () => {
+  const lead = { name: 'Fade Theory', niche: 'cafe',
+    socials: JSON.stringify({ instagram: 'javascript:alert(1)', facebook: 'https://facebook.com/fadetheory' }) };
+  const { indexHtml } = await renderSite(lead, cfg);
+  assert.ok(!indexHtml.includes('javascript:alert(1)'), 'bad social URL neutralized');
+  assert.ok(indexHtml.includes('https://facebook.com/fadetheory'));
+});
+
+test('builder omits the socials section entirely when there are none', async () => {
+  const { indexHtml } = await renderSite({ name: 'No Socials Shop', niche: 'cafe' }, cfg);
+  assert.ok(!indexHtml.includes('{{socialsHtml}}'));
+  assert.ok(!/Instagram|TikTok|Facebook/i.test(indexHtml));
+});
+
 test('orchestrator tick: discovered → built → deployed (+beyond), with a correct preview URL', async () => {
   const db = openDatabase(':memory:');
   const { id } = db.insertLead({ name: 'QA Tick Shop', niche: 'cafe', city: 'Austin, TX' });

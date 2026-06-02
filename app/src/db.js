@@ -116,6 +116,13 @@ export function openDatabase(path) {
         s.screenshotPath ?? null, s.previewUrl ?? null, s.version ?? 1, now());
       return Number(info.lastInsertRowid);
     },
+    setSocials(id, socials) {
+      db.prepare('UPDATE leads SET socials = ?, updated_at = ? WHERE id = ?')
+        .run(socials ? JSON.stringify(socials) : null, now(), id);
+      api.recordEvent(id, 'socials', socials);
+      return api.getLead(id);
+    },
+
     getSiteForLead: (leadId) => db.prepare('SELECT * FROM sites WHERE lead_id = ? ORDER BY id DESC').get(leadId),
     setSitePreview: (siteId, url) => db.prepare('UPDATE sites SET preview_url = ? WHERE id = ?').run(url, siteId),
 

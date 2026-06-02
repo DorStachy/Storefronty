@@ -51,6 +51,16 @@ test('researcher (mock) returns only no-website leads, respects niche + limit', 
   assert.ok(all.every((l) => l.hasWebsite === false));         // the with-website chain is filtered out
 });
 
+test('setSocials persists a socials object and logs an event', () => {
+  const db = openDatabase(':memory:');
+  const { id } = db.insertLead({ name: 'Fade Theory', niche: 'barbershop' });
+  db.setSocials(id, { instagram: 'https://instagram.com/fadetheory' });
+  const lead = db.getLead(id);
+  assert.equal(JSON.parse(lead.socials).instagram, 'https://instagram.com/fadetheory');
+  assert.ok(db.eventsFor(id).some((e) => e.type === 'socials'));
+  db.close();
+});
+
 test('suppression list', () => {
   const db = openDatabase(':memory:');
   assert.equal(db.isSuppressed('a@b.com'), false);

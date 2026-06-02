@@ -55,6 +55,26 @@ function parseDetails(lead) {
   return typeof lead.details === 'string' ? JSON.parse(lead.details) : lead.details;
 }
 
+const SOCIAL_LABELS = { instagram: 'Instagram', facebook: 'Facebook', tiktok: 'TikTok' };
+
+// Render the verified "Check our socials" footer fragment. Reads lead.socials (object or JSON
+// string), falls back to a lead-level instagram, and drops any link whose URL doesn't pass safeUrl.
+// Returns '' when there's nothing to show (so the section disappears cleanly).
+function renderSocials(lead) {
+  let socials = {};
+  if (lead.socials) {
+    try { socials = typeof lead.socials === 'string' ? JSON.parse(lead.socials) : lead.socials; } catch { socials = {}; }
+  }
+  if (!socials.instagram && lead.instagram) socials = { ...socials, instagram: lead.instagram };
+  const links = [];
+  for (const [key, label] of Object.entries(SOCIAL_LABELS)) {
+    const safe = safeUrl(socials[key]);
+    if (!socials[key] || safe === '#') continue;           // missing or neutralized → skip
+    links.push(`<a href="${escapeHtml(safe)}">${label}</a>`);
+  }
+  return links.length ? ` · ${links.join(' · ')}` : '';
+}
+
 export async function renderSite(lead, config) {
   const d = DEFAULTS[lead.niche] || DEFAULTS.barbershop;
   const det = parseDetails(lead);
@@ -79,7 +99,7 @@ export async function renderSite(lead, config) {
   // Every interpolated value is escaped (untrusted lead fields → stored-XSS otherwise).
   const map = {
     shopName: escapeHtml(lead.name), city: escapeHtml(lead.city || ''), phone: escapeHtml(lead.phone || ''),
-    address: escapeHtml(lead.address || ''), instagram: safeUrl(lead.instagram || '#'),
+    address: escapeHtml(lead.address || ''), socialsHtml: renderSocials(lead),
     tagline: escapeHtml(tagline), ratingBadge,
     headlineTop: d.headlineTop, headlineBottom: d.headlineBottom,
     hoursWeekday: escapeHtml(weekday), hoursSat: escapeHtml(sat), hoursSun: escapeHtml(sun),

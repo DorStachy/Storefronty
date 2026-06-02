@@ -32,6 +32,22 @@ switch (cmd) {
     console.log(`  found ${r.found} truly-no-website shops · inserted ${r.inserted} new · skipped ${r.skipped} dup`);
     break;
   }
+  case 'socials': {
+    // Opt-in (costs search credits): verify + store each lead's IG/FB/TikTok, gated by location.
+    const { discoverSocials } = await import('./socials/index.js');
+    const { buildIdentity } = await import('./researcher/index.js');
+    const searchFn = makeSearchFn(config.search);
+    if (!searchFn) { console.log('no search engine configured (set SERPAPI_KEY or SERPER_API_KEY in app/.env)'); break; }
+    const ids = opts.all ? db.listLeads(opts.status).map((l) => l.id) : [Number(rest[0] || opts.id)];
+    for (const id of ids) {
+      const lead = db.getLead(id);
+      if (!lead) { console.log(`lead ${id} not found`); continue; }
+      const s = await discoverSocials(buildIdentity(lead), { searchFn });
+      db.setSocials(id, s);
+      console.log(`#${id} ${lead.name}: ${Object.keys(s).length ? Object.entries(s).map(([k, v]) => `${k}=${v}`).join('  ') : '(none verified)'}`);
+    }
+    break;
+  }
   case 'tick': {
     const { tick } = await import('./orchestrator.js');
     const acted = await tick(db);
@@ -58,6 +74,7 @@ switch (cmd) {
     console.log(`Storefronty pipeline CLI
   init                          create / migrate the database
   research --city --niche --limit [--engine mock|places]
+  socials <id> [--all [--status <state>]]   verify + store each lead's socials
   leads [--status <state>]      list leads
   lead <id>                     show one lead + its event history`);
 }
