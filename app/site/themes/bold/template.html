@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{{shopName}}</title>
+  <meta name="description" content="{{tagline}}" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&family=Archivo+Expanded:wght@600;700;800;900&family=Inter:wght@400;500;600;700&display=swap" />
+  <link rel="stylesheet" href="{{cssHref}}" />
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+
+  <header class="nav" data-nav>
+    <div class="wrap nav-in">
+      <a class="brand" href="#top">
+        <span class="brand-mark" aria-hidden="true">●</span>
+        <span class="brand-name">{{shopName}}</span>
+      </a>
+      <nav class="nav-links" aria-label="Primary">
+        <a href="#services">Services</a>
+        <a href="#hours">Hours</a>
+        <a href="#reviews">Reviews</a>
+        <a href="#visit">Visit</a>
+      </nav>
+      <a class="btn btn-sm" href="#visit">{{ctaLabel}}</a>
+    </div>
+  </header>
+
+  <main id="main">
+    <span id="top"></span>
+
+    <!-- HERO — the poster -->
+    <section class="hero wrap">
+      <div class="hero-copy" data-reveal>
+        <p class="eyebrow">{{eyebrow}}</p>
+        <h1 class="display">{{shopName}}</h1>
+        <p class="lede">{{tagline}}</p>
+        <p class="rating" data-rating>{{ratingHtml}}</p>
+        <div class="hero-cta">
+          <a class="btn" href="#visit">{{ctaLabel}}</a>
+          <a class="link-arrow" href="#services">See what we do</a>
+        </div>
+      </div>
+      <div class="hero-block" data-reveal aria-hidden="true">
+        <div class="block">
+          <span class="block-grid"></span>
+          <span class="block-mark">{{shopName}}</span>
+          <span class="block-tag">{{eyebrow}}</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- MARQUEE / TRUST STRIP -->
+    <section class="trust" data-trust>
+      <div class="wrap trust-in">
+        <span class="trust-rating">{{ratingHtml}}</span>
+        <span class="trust-note">{{eyebrow}}</span>
+      </div>
+    </section>
+
+    <!-- ABOUT -->
+    <section class="section about" id="about" data-reveal>
+      <p class="kicker"><span class="num">01</span> About</p>
+      <div class="about-body prose">{{aboutHtml}}</div>
+    </section>
+
+    <!-- SERVICES -->
+    <section class="section alt services" id="services" data-reveal>
+      <p class="kicker"><span class="num">02</span> What we do</p>
+      <div class="cards">{{servicesHtml}}</div>
+    </section>
+
+    <!-- HOURS -->
+    <section class="section hours" id="hours" data-reveal>
+      <p class="kicker"><span class="num">03</span> Hours</p>
+      <ul class="hours-list">{{hoursHtml}}</ul>
+    </section>
+
+    <!-- GALLERY -->
+    <section class="section alt gallery" id="gallery" data-reveal>
+      <p class="kicker"><span class="num">04</span> A look inside</p>
+      <div class="tiles">{{galleryHtml}}</div>
+    </section>
+
+    <!-- REVIEWS (auto-hidden when empty) -->
+    <section class="section reviews" id="reviews" data-reveal>
+      <p class="kicker"><span class="num">05</span> What people say</p>
+      <div class="reviews-list">{{reviewsHtml}}</div>
+    </section>
+
+    <!-- VISIT + CTA -->
+    <section class="section alt visit" id="visit" data-reveal>
+      <p class="kicker"><span class="num">06</span> Visit</p>
+      <div class="visit-grid">
+        <address class="visit-info">{{contactHtml}}</address>
+        <div class="visit-panel block" aria-hidden="true">
+          <span class="block-grid"></span>
+          <span class="block-mark sm">{{shopName}}</span>
+        </div>
+      </div>
+      <div class="cta-band">
+        <p class="cta-eyebrow">Drop by</p>
+        <h2 class="cta-title">We'd love to <em>see you.</em></h2>
+        <a class="btn btn-lg" href="#top">{{ctaLabel}}</a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <div class="wrap foot-in">
+      <span class="foot-brand">{{shopName}}</span>
+      <span class="foot-tag">{{tagline}}</span>
+    </div>
+  </footer>
+
+  <script>
+    /* progressive enhancement: <2KB, reduced-motion respected in CSS */
+    (function () {
+      var d = document, root = d.documentElement;
+      root.classList.add('js');
+      function ready(fn) { d.readyState !== 'loading' ? fn() : d.addEventListener('DOMContentLoaded', fn); }
+      ready(function () {
+        // sticky-nav condensed state
+        var nav = d.querySelector('[data-nav]');
+        var onScroll = function () { if (nav) nav.classList.toggle('is-scrolled', window.scrollY > 24); };
+        onScroll();
+        window.addEventListener('scroll', onScroll, { passive: true });
+        // staggered scroll reveals
+        var items = [].slice.call(d.querySelectorAll('[data-reveal]'));
+        if (!('IntersectionObserver' in window)) { items.forEach(function (el) { el.classList.add('in'); }); return; }
+        var io = new IntersectionObserver(function (entries) {
+          entries.forEach(function (en) {
+            if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target); }
+          });
+        }, { rootMargin: '0px 0px -8% 0px', threshold: 0.08 });
+        items.forEach(function (el, i) { el.style.setProperty('--i', i % 6); io.observe(el); });
+      });
+    })();
+  </script>
+</body>
+</html>
