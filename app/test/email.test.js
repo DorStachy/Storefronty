@@ -24,10 +24,31 @@ test('scoreEmail: a gmail address co-located with the shop PHONE is high confide
   assert.ok(sc.reasons.includes('phone'));
 });
 
-test('scoreEmail: name + city (no phone, generic domain) is medium and acceptable', () => {
-  const sc = scoreEmail(id, 'cielitolindo@gmail.com', 'Cielito Lindo Cafe in Austin, TX — cielitolindo@gmail.com');
+test('scoreEmail: a free-mail address whose local part carries the shop name is high', () => {
+  const sc = scoreEmail(id, 'cielitolindocafe@gmail.com', 'reach us at cielitolindocafe@gmail.com');
+  assert.ok(sc.accept);
+  assert.equal(sc.confidence, 'high');
+  assert.ok(sc.reasons.includes('local_name'));
+});
+
+test('scoreEmail: a plain free-mail address with name + city (no phone) is medium and acceptable', () => {
+  const sc = scoreEmail(id, 'hello@gmail.com', 'Cielito Lindo Cafe in Austin, TX — hello@gmail.com');
   assert.equal(sc.confidence, 'medium');
   assert.ok(sc.accept);
+});
+
+test('scoreEmail: a booking/platform email is rejected even next to the shop phone (the Fresha bug)', () => {
+  // Live sweep accepted hello@fresha.com for "AB fadez" because the shop's phone was on the Fresha
+  // booking page. Fresha's address is NOT the shop's — platform/aggregator domains are never theirs.
+  for (const e of ['hello@fresha.com', 'info@booksy.com', 'team@vagaro.com', 'no@squareup.com']) {
+    const sc = scoreEmail(id, e, 'AB fadez — call (512) 555-0199 — book now');
+    assert.ok(!sc.accept, `${e} (platform) must be rejected`);
+  }
+});
+
+test('scoreEmail: a random NON-free-mail domain on name+city alone is rejected (the faisalman bug)', () => {
+  const sc = scoreEmail(id, 'f@faisalman.com', 'Cielito Lindo Cafe Austin TX f@faisalman.com');
+  assert.ok(!sc.accept);   // not own-domain, not free-mail, no phone → not confidently theirs
 });
 
 test('scoreEmail: a DIFFERENT city (ours absent) → conflict, rejected', () => {

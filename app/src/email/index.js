@@ -4,7 +4,18 @@
 // THIS shop (own-domain name, or co-located with the shop's phone / name+city), rejecting junk and
 // conflicting-location pages. A lead is only "sendable" when it's NO_WEBSITE AND we find an email.
 import { safeFetch } from '../util/net.js';
-import { host, digits, last10, distinctiveTokens, registrable, nameCoverage } from '../util/text.js';
+import { host, digits, last10, distinctiveTokens, registrable, nameCoverage, normalizeName } from '../util/text.js';
+import { isAggregator } from '../discovery/index.js';
+
+// Free webmail providers — a generic address here (hello@gmail.com) can still be a shop's contact;
+// a generic address on a random business domain usually is NOT theirs.
+const FREE_MAIL = new Set(['gmail.com', 'yahoo.com', 'outlook.com', 'hotmail.com', 'icloud.com', 'aol.com',
+  'live.com', 'msn.com', 'protonmail.com', 'proton.me', 'ymail.com', 'me.com', 'comcast.net', 'sbcglobal.net',
+  'att.net', 'verizon.net', 'mail.com', 'gmx.com']);
+// Booking / POS / scheduling platforms — their email is the platform's, never the shop's own.
+const PLATFORM_MAIL = new Set(['fresha.com', 'booksy.com', 'vagaro.com', 'squareup.com', 'square.com', 'clover.com',
+  'toasttab.com', 'mindbodyonline.com', 'styleseat.com', 'glossgenius.com', 'schedulicity.com', 'setmore.com',
+  'acuityscheduling.com', 'calendly.com', 'getsling.com', 'wixpress.com', 'sentry.io', 'shopify.com']);
 
 const EMAIL_RE = /[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}/gi;
 const JUNK_LOCAL = /^(no-?reply|do-?not-?reply|donotreply|postmaster|mailer-daemon|abuse|privacy|webmaster|hostmaster|root|admin|example|you|your|name|email|user|test|sentry|sample)$/i;
@@ -34,27 +45,39 @@ const locationConflict = (identity, blob) => {
 };
 
 // Verify one candidate email against the shop, using the text it was found in as corroboration.
+// Identity-anchored: own-domain name / free-mail-with-name / the shop's phone are strong; a plain
+// free-mail with name+city is medium. Platform/aggregator domains (Fresha, Booksy, Square, …) and a
+// generic address on some unrelated business domain are rejected — they aren't the shop's.
 export function scoreEmail(identity, email, context = '') {
   if (isJunkEmail(email)) return { accept: false, confidence: 'none', score: 0, reasons: ['junk'] };
   const domain = email.split('@')[1] || '';
+  const reg = registrable(domain);
+  if (isAggregator(domain) || PLATFORM_MAIL.has(reg)) return { accept: false, confidence: 'none', score: 0, reasons: ['platform'] };
+
+  const local = email.split('@')[0] || '';
   const blob = String(context).toLowerCase();
   const dg = digits(blob);
   const dt = distinctiveTokens(identity.name);
   const ourPhone = last10(identity.phone);
+  const freeMail = FREE_MAIL.has(reg);
   const reasons = [];
   let score = 0;
 
-  if (dt.some((t) => registrable(domain).includes(t))) { score += 4; reasons.push('domain_name'); }
+  if (dt.some((t) => reg.includes(t))) { score += 4; reasons.push('domain_name'); }
+  if (freeMail && dt.length && dt.some((t) => normalizeName(local).includes(t))) { score += 3; reasons.push('local_name'); }
   if (ourPhone && dg.includes(ourPhone)) { score += 4; reasons.push('phone'); }
   if (nameCoverage(identity.name, blob) >= 0.7) { score += 2; reasons.push('name'); }
   if (identity.city && blob.includes(String(identity.city).toLowerCase())) { score += 1; reasons.push('city'); }
   if (locationConflict(identity, blob)) { score -= 5; reasons.push('-conflict_city'); }
 
   const conflicted = reasons.includes('-conflict_city');
+  const strong = reasons.includes('domain_name') || reasons.includes('local_name') || reasons.includes('phone');
   let confidence = 'none';
-  if (!conflicted && (reasons.includes('domain_name') || reasons.includes('phone'))) confidence = 'high';
-  else if (!conflicted && reasons.includes('name') && reasons.includes('city')) confidence = 'medium';
-  return { accept: confidence === 'high' || confidence === 'medium', confidence, score, reasons };
+  if (!conflicted && strong) confidence = 'high';
+  // The weaker name+city path only counts for a free-mail address — a generic address on a random
+  // business domain (co-occurring in a directory) is not confidently the shop's.
+  else if (!conflicted && freeMail && reasons.includes('name') && reasons.includes('city')) confidence = 'medium';
+  return { accept: confidence !== 'none', confidence, score, reasons };
 }
 
 const rank = (c) => (c.confidence === 'high' ? 2 : c.confidence === 'medium' ? 1 : 0);

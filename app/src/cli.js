@@ -32,6 +32,30 @@ switch (cmd) {
     console.log(`  found ${r.found} truly-no-website shops · inserted ${r.inserted} new · skipped ${r.skipped} dup`);
     break;
   }
+  case 'sweep': {
+    // Broad live sweep for QUALIFIED SENDABLE leads (NO_WEBSITE + a verified email). Costs search
+    // credits; bounded by --want / --limit. Cities separated by ';' (they contain commas).
+    const { sweep } = await import('./sweep/index.js');
+    const { search: placesSearch } = await import('./researcher/places.js');
+    const { discoverWebsite } = await import('./discovery/index.js');
+    const { discoverEmail } = await import('./email/index.js');
+    const { buildIdentity } = await import('./researcher/index.js');
+    const searchFn = makeSearchFn(config.search);
+    const niches = (opts.niches || 'barbershop,nail salon').split(',').map((s) => s.trim());
+    const cities = (opts.cities || 'Pflugerville, TX;Round Rock, TX').split(';').map((s) => s.trim());
+    const r = await sweep(db, {
+      niches, cities, perCity: Number(opts.limit || 20), want: Number(opts.want || 3), maxScan: Number(opts.maxScan || 200),
+    }, {
+      placesSearch: (a) => placesSearch({ ...a, apiKey: config.researcher.googleKey }),
+      buildIdentity,
+      discover: (id) => discoverWebsite(id, { searchFn }),
+      discoverEmail: (id) => discoverEmail(id, { searchFn }),
+      onLog: (m) => console.log(m),
+    });
+    console.log(`\nFunnel: scanned ${r.scanned} → no-website ${r.noWebsite} → has-email ${r.hasEmail} → SENDABLE ${r.sendable.length}`);
+    for (const s of r.sendable) console.log(`  #${s.leadId}  ${s.name} (${s.city})  ·  ${s.email} [${s.confidence}]  ·  ${s.reasons.join(',')}`);
+    break;
+  }
   case 'socials': {
     // Opt-in (costs search credits): verify + store each lead's IG/FB/TikTok, gated by location.
     const { discoverSocials } = await import('./socials/index.js');
