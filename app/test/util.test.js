@@ -1,0 +1,34 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { last10, distinctiveTokens, host, registrable, nameCoverage, areaCode } from '../src/util/text.js';
+import { escapeHtml, safeUrl } from '../src/util/html.js';
+
+test('phone helpers', () => {
+  assert.equal(last10('(512) 555-0199'), '5125550199');
+  assert.equal(areaCode('+1 (512) 555-0199'), '512');
+});
+
+test('distinctiveTokens drops generic category words', () => {
+  assert.deepEqual(distinctiveTokens('Cielito Lindo Cafe'), ['cielito', 'lindo']);
+  assert.deepEqual(distinctiveTokens("Fade Theory Barbershop"), ['fade', 'theory']);
+});
+
+test('host + registrable', () => {
+  assert.equal(host('https://www.Example.com/x?y=1'), 'example.com');
+  assert.equal(registrable('shop.example.com'), 'example.com');
+});
+
+test('nameCoverage', () => {
+  assert.equal(nameCoverage('Cielito Lindo Cafe', 'cielito lindo cafe austin'), 1);
+  assert.ok(nameCoverage('Cielito Lindo', 'totally unrelated') === 0);
+});
+
+test('escapeHtml neutralizes markup and quotes', () => {
+  assert.equal(escapeHtml(`<script>"x"&'y'`), '&lt;script&gt;&quot;x&quot;&amp;&#39;y&#39;');
+});
+
+test('safeUrl allows http(s)/tel/mailto, blocks javascript:', () => {
+  assert.equal(safeUrl('https://instagram.com/x'), 'https://instagram.com/x');
+  assert.equal(safeUrl('javascript:alert(1)'), '#');
+  assert.equal(safeUrl(''), '#');
+});
