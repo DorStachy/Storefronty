@@ -20,10 +20,20 @@
 | **1E** Per-niche cold email | approved §5.6 copy + per-niche variants, 3 inline screenshots, CAN-SPAM | ✅ DONE — assembled email eyeballed |
 | **1F** Pipeline wiring + real send | orchestrator: fill→build→screenshot→email; real end-to-end cold-pitch send | ✅ DONE — **real send verified** (see below) |
 | **2** Reply → Opus → hosted 48h | classify · Opus rebuild · QA gate · signed approval · 48h deploy · 2-link reply email | ✅ DONE — full loop tested (189/189); Opus/Cloudflare/IMAP are key-gated seams |
-| **3** Portal (sell + take money) | claim-binding · accounts/auth · plans/quota · Stripe · dashboard | ⏳ in progress |
+| **3** Portal (sell + take money) | claim-binding · accounts/auth · plans/quota · Stripe · dashboard | ✅ DONE — full flow tested (212/212) + claim page browser-verified; Google-OAuth & live Stripe are key-gated seams |
 
 Phases 4–7 (volume, marketing site, tier polish, autonomy) are outlined in the design spec; they depend on
 real sending infra + accounts and are scoped for after launch.
+
+### Bottom line (read this first)
+
+**All three core phases are built, tested (212/212 passing), and verified.** The whole machine runs end-to-end:
+a no-website shop becomes a theme-matched demo → personal cold email with screenshots (a **real send** landed in
+your inbox) → owner reply rebuilds + QA-gates the site → your one-click signed approval → 48h hosted link + a
+two-link reply email → the owner creates an account (pre-bound to his site) → one free change → picks a plan →
+pays (Stripe) → manages everything from a dashboard. Every external service (Gemini, Opus, Cloudflare, Stripe,
+IMAP, Google login) is behind a clean adapter that **falls back gracefully** and turns on the moment you drop in
+the key — listed under **What I need from you**. Nothing is half-wired; each phase is committed green.
 
 ### ✅ PHASE 1 COMPLETE — the wow demo + the cold pitch works end-to-end
 
@@ -45,6 +55,24 @@ no console errors, mobile-safe), then it waits for your **✅ on a signed, POST-
 mode). On approve it deploys for **48h** (local stub now; Cloudflare Workers seam ready) and sends the
 **two-link reply email** (the live site + a tamper-proof account-claim link that pre-binds the new account to
 his site). Cred-gated pieces (Opus, Cloudflare, IMAP polling) fall back gracefully and are flagged below.
+
+### ✅ PHASE 3 COMPLETE — the portal (claim → account → plan → pay → manage)
+
+The reply email's second link lands here. The **signed claim link** opens a "Create your account for {Shop}"
+page (I browser-verified it — clean, warm, on-brand) that **pre-binds** the new account to his exact site. He
+signs up (email+password now; **Google login is a ready seam** pending a Google OAuth client), gets his
+dashboard: his live site, his plan + remaining changes, and a change box. The **one free change** is spent
+first and **re-enters the rebuild pipeline** automatically (full circle to Phase 2). He picks a plan
+(**Starter $29 / Pro $49 / Premium $99**, quotas **3 / 15 / unlimited**, Premium includes a domain) → **Stripe
+subscription checkout** (key-gated; shows a tidy "payments switch on soon" page until the key lands) → the
+**signed Stripe webhook** flips the plan active. Sessions are signed HTTP-only cookies; passwords are scrypt.
+
+### Deferred wiring (each is one small step when the key/account lands — none block the build)
+
+- **IMAP reply polling** uses `imapflow` (lazy-loaded). Install once via the cera gate: `cera install-package --ecosystem npm --package imapflow`. Until then, replies can be fed via the CLI `reply` command (the whole reply loop is exercised that way in tests).
+- **Cloudflare Workers hosting**: the deployer has the `cloudflare` engine seam; today it serves previews from the local static server. Real 48h wildcard hosting turns on with `CLOUDFLARE_API_TOKEN` + zone (set `HOSTING_ENGINE=cloudflare`).
+- **Google "Log in with Google"**: email+password is live; OAuth is an additive route pending a Google client.
+- **Real AI** (Gemini fill / Opus rebuild): deterministic, truthful fallbacks run now; richer copy turns on with the keys.
 
 ---
 
