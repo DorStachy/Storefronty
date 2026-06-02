@@ -16,7 +16,7 @@ const FIELD_MASK = [
   'places.id', 'places.displayName', 'places.formattedAddress', 'places.nationalPhoneNumber',
   'places.websiteUri', 'places.types', 'places.primaryTypeDisplayName', 'places.rating',
   'places.userRatingCount', 'places.priceLevel', 'places.regularOpeningHours',
-  'places.editorialSummary', 'places.googleMapsUri',
+  'places.editorialSummary', 'places.googleMapsUri', 'places.location',
 ].join(',');
 
 // Map one raw Places result into our lead shape. Exported for unit-testing the websiteUri
@@ -48,6 +48,8 @@ export function mapPlace(p, { niche, city }) {
       primaryType: p.primaryTypeDisplayName?.text || null,
       hours: p.regularOpeningHours?.weekdayDescriptions || null,
       mapsUri: p.googleMapsUri || null,
+      lat: p.location?.latitude ?? null,
+      lng: p.location?.longitude ?? null,
     },
   };
 }

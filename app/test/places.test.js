@@ -33,3 +33,15 @@ test('mapPlace: an Instagram URI → hasWebsite=false', () => {
   const l = mapPlace({ id: '6', displayName: { text: 'Insta-only Cafe' }, websiteUri: 'https://www.instagram.com/some-handle' }, base);
   assert.equal(l.hasWebsite, false);
 });
+
+test('mapPlace: captures lat/lng + mapsUri into details (for identity-anchored discovery)', () => {
+  const l = mapPlace({
+    id: '7', displayName: { text: 'Geo Cafe' },
+    location: { latitude: 30.2649, longitude: -97.7405 },
+    googleMapsUri: 'https://maps.google.com/?cid=999',
+  }, base);
+  assert.equal(l.details.lat, 30.2649);
+  assert.equal(l.details.lng, -97.7405);
+  assert.equal(l.details.mapsUri, 'https://maps.google.com/?cid=999');
+  assert.equal(l.source, 'places:7');                       // place_id available via source
+});

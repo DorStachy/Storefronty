@@ -10,7 +10,37 @@ import { parseAddress } from '../util/text.js';
 
 const ENGINES = { mock, places };
 
-export async function research({ niche, city, limit = 20, engine = 'mock', apiKey = '', searchFn = null } = {}) {
+const parseDetails = (lead) => {
+  if (!lead.details) return {};
+  return typeof lead.details === 'string' ? (() => { try { return JSON.parse(lead.details); } catch { return {}; } })() : lead.details;
+};
+
+// The FULL identity we hand to discovery for THIS exact shop — never the name alone. Same-name
+// shops elsewhere are defeated by these location-unique fields (phone, street/ZIP, place_id/cid,
+// lat/lng). `cityArg` is the research city; the lead's own city wins when present.
+export function buildIdentity(lead, cityArg = '') {
+  const det = parseDetails(lead);
+  const region = String(lead.city || cityArg || '');
+  const { street, zip } = parseAddress(lead.address);
+  const placeId = String(lead.source || '').startsWith('places:') ? lead.source.slice(7) : null;
+  return {
+    name: lead.name,
+    city: region.split(',')[0].trim(),
+    state: region.split(',')[1]?.trim() || '',
+    phone: lead.phone || null,
+    street, zip,
+    placeId,
+    lat: det.lat ?? null,
+    lng: det.lng ?? null,
+    mapsUri: det.mapsUri || null,
+    websiteUri: lead.websiteUri || null,
+  };
+}
+
+export async function research(
+  { niche, city, limit = 20, engine = 'mock', apiKey = '', searchFn = null } = {},
+  { discover = discoverWebsite } = {},
+) {
   const mod = ENGINES[engine];
   if (!mod) throw new Error(`unknown researcher engine: ${engine}`);
   const found = await mod.search({ niche, city, limit, apiKey });
@@ -18,16 +48,11 @@ export async function research({ niche, city, limit = 20, engine = 'mock', apiKe
 
   if (!searchFn) return candidates.map((l) => ({ ...l, website_status: 'unknown' }));
 
-  const cityName = String(city || '').split(',')[0].trim();
-  const state = String(city || '').split(',')[1]?.trim() || '';
   const kept = [];
   for (const l of candidates) {
-    const { street, zip } = parseAddress(l.address);   // boosts discovery accuracy when phone is missing
     let r;
     try {
-      r = await discoverWebsite(
-        { name: l.name, city: cityName, state, phone: l.phone, street, zip, websiteUri: l.websiteUri || null },
-        { searchFn });
+      r = await discover(buildIdentity(l, city), { searchFn });
     } catch { r = { status: 'UNCERTAIN' }; }
     if (r.status === 'NO_WEBSITE') {
       kept.push({ ...l, website_status: 'none' });
