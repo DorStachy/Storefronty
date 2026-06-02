@@ -1,0 +1,16 @@
+{
+  "name": "storefronty-generator",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Phase 0 deterministic site generator: shop data -> finished demo sites + email previews + dashboard. Zero dependencies for the core; Playwright optional for screenshots.",
+  "scripts": {
+    "generate": "node src/generate.js",
+    "screenshot": "node src/screenshot.js",
+    "build": "node src/generate.js && node src/screenshot.js",
+    "serve": "node src/serve.js"
+  },
+  "devDependencies": {
+    "playwright": "^1.60.0"
+  }
+}

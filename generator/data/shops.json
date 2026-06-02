@@ -1,0 +1,57 @@
+{
+  "config": {
+    "fromName": "Michael",
+    "brand": "Storefronty",
+    "ownerEmail": "you@storefronty.com",
+    "postalAddress": "Storefronty LLC, 123 Main St, Austin, TX 78701",
+    "unsubscribeUrl": "#unsubscribe"
+  },
+  "shops": [
+    {
+      "slug": "fade-theory",
+      "niche": "barbershop",
+      "shopName": "Fade Theory",
+      "firstName": "Marcus",
+      "email": "hello@fadetheory.example",
+      "city": "Austin, TX",
+      "phone": "(512) 555-0148",
+      "address": "120 E 6th St",
+      "instagram": "https://instagram.com/fadetheory",
+      "specialty": "skin fades",
+      "tagline": "Skilled barbers, sharp fades, and a chair you can sink into.",
+      "headlineTop": "A cut you",
+      "headlineBottom": "come back for.",
+      "hoursWeekday": "9:00 AM – 8:00 PM",
+      "hoursSat": "9:00 AM – 2:00 PM",
+      "hoursSun": "Closed",
+      "services": [
+        { "name": "Men's haircut", "desc": "A personalized cut, classic to modern.", "price": "35" },
+        { "name": "Beard trim", "desc": "Shape-up, line-up, and precise styling.", "price": "20" },
+        { "name": "VIP package", "desc": "Haircut + beard + a hot-towel facial.", "price": "60" }
+      ]
+    },
+    {
+      "slug": "morning-ember",
+      "niche": "cafe",
+      "shopName": "Morning Ember",
+      "firstName": "Dana",
+      "email": "hi@morningember.example",
+      "city": "Portland, OR",
+      "phone": "(503) 555-0192",
+      "address": "88 SE Stark St",
+      "instagram": "https://instagram.com/morningember",
+      "specialty": "single-origin pour-overs",
+      "tagline": "Quality coffee, fresh pastries from the oven, and a room that invites you to stay.",
+      "headlineTop": "The best coffee",
+      "headlineBottom": "in the neighborhood.",
+      "hoursWeekday": "7:30 AM – 7:00 PM",
+      "hoursSat": "8:00 AM – 4:00 PM",
+      "hoursSun": "Closed",
+      "services": [
+        { "name": "Pour-over coffee", "desc": "Freshly roasted single-origin beans, brewed to order.", "price": "5" },
+        { "name": "Fresh pastries", "desc": "Croissants and sweet bakes straight from the oven.", "price": "4" },
+        { "name": "Breakfast plate", "desc": "A treat of a meal to start your day right.", "price": "12" }
+      ]
+    }
+  ]
+}

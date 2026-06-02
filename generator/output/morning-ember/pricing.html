@@ -15,7 +15,7 @@
 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;600;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="../styles.css">
 <style>
   body { background: linear-gradient(180deg, #faf8f5, #ffffff); }
   .wrap { max-width: 760px; margin: 0 auto; padding: 0 22px; }
@@ -63,7 +63,7 @@
 
 <section class="pricing-hero">
   <div class="wrap">
-    <div class="eyebrow">{{shopName}}'s site is live 🎉</div>
+    <div class="eyebrow">Morning Ember's site is live 🎉</div>
     <h1>Love it? Let's make it yours.</h1>
     <p>The first change was on me. Here's one more, free — and if you like it, your site can go live on your own domain today.</p>
   </div>
@@ -145,13 +145,13 @@
 
 <footer><div class="container">
   <span class="brand">Storefronty<span style="color:var(--accent)">.</span></span>
-  Websites for local businesses · {{postalAddress}}
+  Websites for local businesses · Storefronty LLC, 123 Main St, Austin, TX 78701
 </div></footer>
 
 <script>
   // === SET THESE ===
-  const OWNER_EMAIL = "{{ownerEmail}}"; // where change requests are emailed
-  const SHOP_NAME   = "{{shopName}}";   // injected per shop by the generator
+  const OWNER_EMAIL = "you@storefronty.com"; // where change requests are emailed
+  const SHOP_NAME   = "Morning Ember";   // injected per shop by the generator
   // Stripe Payment Links go in the [STRIPE_*_LINK] hrefs above.
 
   function fill(t){ const i=document.getElementById('prompt-input'); i.value=t; i.focus(); }

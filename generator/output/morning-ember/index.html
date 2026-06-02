@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{{shopName}} · Café in {{city}}</title>
+<title>Morning Ember · Café in Portland, OR</title>
 <!--
   DEMO TEMPLATE — Café / Restaurant (Half B). Token placeholders are filled by generator/src/generate.js.
 -->
@@ -21,27 +21,27 @@
 </head>
 <body class="theme-cafe">
 
-<div class="demo-ribbon">Preview · built just for {{shopName}} — tell me one thing to change ☕</div>
+<div class="demo-ribbon">Preview · built just for Morning Ember — tell me one thing to change ☕</div>
 
 <nav class="nav"><div class="container">
-  <div class="brand">{{shopName}}<span>.</span></div>
+  <div class="brand">Morning Ember<span>.</span></div>
   <div class="navlinks">
     <a href="#menu">Menu</a>
     <a href="#gallery">Gallery</a>
     <a href="#hours">Hours</a>
     <a href="#contact">Contact</a>
-    <a class="btn" href="tel:{{phone}}">Reserve</a>
+    <a class="btn" href="tel:(503) 555-0192">Reserve</a>
   </div>
 </div></nav>
 
 <header class="hero">
   <div class="hero-bg"></div>
   <div class="container">
-    <div class="eyebrow">Café · {{city}}</div>
-    <h1>{{headlineTop}}<br>{{headlineBottom}}</h1>
-    <p>{{tagline}}</p>
+    <div class="eyebrow">Café · Portland, OR</div>
+    <h1>The best coffee<br>in the neighborhood.</h1>
+    <p>Quality coffee, fresh pastries from the oven, and a room that invites you to stay.</p>
     <div class="hero-actions">
-      <a class="btn" href="tel:{{phone}}">📞 Reserve a table</a>
+      <a class="btn" href="tel:(503) 555-0192">📞 Reserve a table</a>
       <a class="btn ghost" href="#menu">See the menu</a>
     </div>
   </div>
@@ -54,9 +54,9 @@
       <p class="lead center">Made fresh every morning.</p>
     </div>
     <div class="grid">
-      <div class="card"><div class="icon">☕</div><h3>{{svc1Name}}</h3><p>{{svc1Desc}}</p><div class="price">${{svc1Price}}</div></div>
-      <div class="card"><div class="icon">🥐</div><h3>{{svc2Name}}</h3><p>{{svc2Desc}}</p><div class="price">${{svc2Price}}</div></div>
-      <div class="card"><div class="icon">🍳</div><h3>{{svc3Name}}</h3><p>{{svc3Desc}}</p><div class="price">${{svc3Price}}</div></div>
+      <div class="card"><div class="icon">☕</div><h3>Pour-over coffee</h3><p>Freshly roasted single-origin beans, brewed to order.</p><div class="price">$5</div></div>
+      <div class="card"><div class="icon">🥐</div><h3>Fresh pastries</h3><p>Croissants and sweet bakes straight from the oven.</p><div class="price">$4</div></div>
+      <div class="card"><div class="icon">🍳</div><h3>Breakfast plate</h3><p>A treat of a meal to start your day right.</p><div class="price">$12</div></div>
     </div>
   </div>
 </section>
@@ -77,20 +77,20 @@
     <div>
       <h2>Opening hours</h2>
       <ul class="hours-list">
-        <li><span>Mon–Fri</span><span>{{hoursWeekday}}</span></li>
-        <li><span>Saturday</span><span>{{hoursSat}}</span></li>
-        <li><span>Sunday</span><span>{{hoursSun}}</span></li>
+        <li><span>Mon–Fri</span><span>7:30 AM – 7:00 PM</span></li>
+        <li><span>Saturday</span><span>8:00 AM – 4:00 PM</span></li>
+        <li><span>Sunday</span><span>Closed</span></li>
       </ul>
-      <a class="btn" href="tel:{{phone}}" style="margin-top:22px">📞 {{phone}}</a>
+      <a class="btn" href="tel:(503) 555-0192" style="margin-top:22px">📞 (503) 555-0192</a>
     </div>
-    <div class="map" id="contact">🗺️ {{address}} · {{city}}</div>
+    <div class="map" id="contact">🗺️ 88 SE Stark St · Portland, OR</div>
   </div>
 </section>
 
 <footer>
   <div class="container">
-    <span class="brand">{{shopName}}<span style="color:var(--accent)">.</span></span>
-    {{address}}, {{city}} · {{phone}} · <a href="{{instagram}}">Instagram</a>
+    <span class="brand">Morning Ember<span style="color:var(--accent)">.</span></span>
+    88 SE Stark St, Portland, OR · (503) 555-0192 · <a href="https://instagram.com/morningember">Instagram</a>
     <p style="margin-top:14px;opacity:.6;font-size:13px">Built with Storefronty</p>
   </div>
 </footer>
