@@ -129,6 +129,7 @@ export async function discoverWebsite(biz, { searchFn = null, fetchPage = safeFe
 
   if (biz.websiteUri) add({ url: biz.websiteUri, title: biz.name, snippet: '', source: 'places' });
 
+  let knowledge = null;              // Google Knowledge-Panel facts, when searchFn supplies them
   if (searchFn) {
     const region = [biz.city, biz.state].filter(Boolean).join(' ');
     const queries = [
@@ -136,20 +137,30 @@ export async function discoverWebsite(biz, { searchFn = null, fetchPage = safeFe
       ...(biz.phone ? [{ q: `"${biz.name}" "${biz.phone}"`, phone: true }] : []),
     ];
     for (const { q, phone } of queries) {
-      let results = [];
-      try { results = await searchFn(q); }
-      catch (err) { onSearchError(q, err); results = []; searchFailed = true; }
+      let raw;
+      try { raw = await searchFn(q); }
+      catch (err) { onSearchError(q, err); raw = null; searchFailed = true; }
+      // searchFn may return a plain array (organic) or { organic, knowledge } (rich).
+      const results = Array.isArray(raw) ? raw : (raw?.organic || []);
+      if (!knowledge && !Array.isArray(raw) && raw?.knowledge) knowledge = raw.knowledge;
       for (const r of results) add({ url: r.url, title: r.title, snippet: r.snippet, position: r.position, fromPhoneQuery: !!phone, source: 'search' });
     }
   }
 
-  let best = null, uncertain = searchFailed, presence = false;
+  // Identity-anchored Knowledge-Panel facts: trusted ONLY when the panel's place_id equals THIS
+  // shop's place_id (Google's own entity id — unspoofable disambiguation). Backfill a missing phone
+  // (Places text-search often omits it) so candidate scoring gets the strongest anchor.
+  const kgUs = !!(knowledge && knowledge.placeId && biz.placeId && String(knowledge.placeId) === String(biz.placeId));
+  if (kgUs && !biz.phone && knowledge.phone) biz = { ...biz, phone: knowledge.phone };
+
+  let best = null, uncertain = searchFailed, presence = false, ownDomainUncertain = false;
   for (const cand of candidates) {
     if (isAggregator(cand.host)) { presence = true; continue; }
+    const ownish = domainHasName(biz.name, cand.host);   // plausibly THEIR domain (not a directory)
     let page = null;
     const fr = await fetchPage(cand.url, { timeoutMs: cfg.timeoutMs ?? 8000 });
     if (fr?.ok && /html/i.test(fr.contentType || '')) page = parsePage(fr.body);
-    else if (fr && (fr.status === 'TIMEOUT' || [403, 429, 503].includes(fr.status))) uncertain = true; // a server is there, just blocked
+    else if (fr && (fr.status === 'TIMEOUT' || [403, 429, 503].includes(fr.status))) { uncertain = true; if (ownish) ownDomainUncertain = true; } // a server is there, just blocked
     let sc = scoreCandidate(biz, cand, page);
 
     // JS-render fallback. Only when: a renderer is available + budget left, this is plausibly the
@@ -169,10 +180,21 @@ export async function discoverWebsite(biz, { searchFn = null, fetchPage = safeFe
 
     if (sc.presence) { presence = true; continue; }
     if (sc.strong && sc.score >= acceptScore) { if (!best || sc.score > best.score) best = { url: cand.url, score: sc.score, reasons: sc.reasons }; }
-    else if (sc.score >= uncertainScore) uncertain = true;
+    else if (sc.score >= uncertainScore) { uncertain = true; if (ownish) ownDomainUncertain = true; }
   }
 
+  // Google's own answer for OUR exact entity (place_id matched) is authoritative for the
+  // has-a-website question — and closes the JS-SPA gap with no rendering:
+  //  • website present (non-aggregator) → HAS_WEBSITE, even if the page is an empty SPA shell.
+  //  • no website → NO_WEBSITE. Directory/aggregator presence does NOT suppress this (a no-website
+  //    shop is exactly the kind that's only listed in directories). But a plausibly-OWN domain we
+  //    couldn't read (a bot-blocked SPA) still keeps us UNCERTAIN, since Google can omit a real site.
+  const kgSite = kgUs && knowledge.website && !isAggregator(host(knowledge.website)) ? knowledge.website : null;
+  const kgNoSite = !!(kgUs && !knowledge.website);
+
   if (best) return { status: 'HAS_WEBSITE', website: best.url, score: best.score, reasons: best.reasons };
+  if (kgSite) return { status: 'HAS_WEBSITE', website: kgSite, reasons: ['knowledge_panel', 'place_id_match'] };
+  if (kgNoSite && !ownDomainUncertain && !searchFailed) return { status: 'NO_WEBSITE', website: null, reasons: ['knowledge_panel_no_site', 'place_id_match'] };
   if (uncertain || presence) return { status: 'UNCERTAIN', website: null };
   return { status: 'NO_WEBSITE', website: null };
 }

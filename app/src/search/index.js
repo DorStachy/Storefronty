@@ -3,8 +3,22 @@
 //   - "serpapi" → SerpApi       GET  https://serpapi.com/search
 // Confusingly-similar names; different products, different keys. The "mock" engine returns
 // nothing (offline) — tests inject a search function directly instead.
+//
+// Returns { organic: [{url,title,snippet,position}], knowledge: {website,phone,placeId,title,address}|null }.
+// `knowledge` is the Google Knowledge Panel — Google's own structured answer about the business,
+// including its place_id (used downstream to identity-anchor the panel to THE exact shop).
+const kgFromSerper = (kg) => kg ? {
+  website: kg.website || null, phone: kg.phoneNumber || kg.phone || null,
+  placeId: kg.placeId || kg.cid || null, title: kg.title || null, address: kg.address || null,
+} : null;
+
+const kgFromSerpapi = (kg) => kg ? {
+  website: kg.website || null, phone: kg.phone || null,
+  placeId: kg.place_id || null, title: kg.title || null, address: kg.address || null,
+} : null;
+
 export async function search(query, { engine = 'mock', apiKey = '', num = 10 } = {}) {
-  if (engine === 'mock') return [];
+  if (engine === 'mock') return { organic: [], knowledge: null };
   if (engine === 'serper') {
     if (!apiKey) throw new Error('SERPER_API_KEY not set (set it in app/.env or use a different engine)');
     const res = await fetch('https://google.serper.dev/search', {
@@ -15,7 +29,10 @@ export async function search(query, { engine = 'mock', apiKey = '', num = 10 } =
     });
     if (!res.ok) throw new Error(`Serper ${res.status}: ${await res.text()}`);
     const j = await res.json();
-    return (j.organic || []).map((o) => ({ url: o.link, title: o.title || '', snippet: o.snippet || '', position: o.position }));
+    return {
+      organic: (j.organic || []).map((o) => ({ url: o.link, title: o.title || '', snippet: o.snippet || '', position: o.position })),
+      knowledge: kgFromSerper(j.knowledgeGraph),
+    };
   }
   if (engine === 'serpapi') {
     if (!apiKey) throw new Error('SERPAPI_KEY not set (set it in app/.env or use a different engine)');
@@ -28,7 +45,10 @@ export async function search(query, { engine = 'mock', apiKey = '', num = 10 } =
     const res = await fetch(u, { signal: AbortSignal.timeout(10000) });
     if (!res.ok) throw new Error(`SerpApi ${res.status}: ${await res.text()}`);
     const j = await res.json();
-    return (j.organic_results || []).map((o) => ({ url: o.link, title: o.title || '', snippet: o.snippet || '', position: o.position }));
+    return {
+      organic: (j.organic_results || []).map((o) => ({ url: o.link, title: o.title || '', snippet: o.snippet || '', position: o.position })),
+      knowledge: kgFromSerpapi(j.knowledge_graph),
+    };
   }
   throw new Error(`unknown search engine: ${engine}`);
 }

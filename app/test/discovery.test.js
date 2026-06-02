@@ -244,3 +244,82 @@ test('a throwing renderer is caught and falls back to the static verdict', async
   const r = await discoverWebsite(bizTL, { searchFn, fetchPage, render });
   assert.equal(r.status, 'UNCERTAIN');                // render failed → same as no-render
 });
+
+// ─── Google Knowledge Panel: identity-anchored by place_id (Google's own website answer) ─────
+// searchFn may return { organic, knowledge } (rich) or a plain array (back-compat). The knowledge
+// panel is trusted ONLY when its place_id equals THIS shop's place_id — Google's own entity id,
+// the strongest disambiguation there is. This closes the JS-SPA gap with no browser.
+const OURS_PID = 'ChIJP8p2kJC1RIYR2qrGoXZtZCk';
+const kgBiz = { name: 'Terrible Love', city: 'Austin', state: 'TX', placeId: OURS_PID };
+const failFetch = async () => ({ ok: false, status: 'FAILED' });
+
+test('KP (place_id match) with a website → HAS_WEBSITE even if the page is an empty SPA', async () => {
+  const SPA2 = 'https://terriblelovecoffee.com';
+  const fetchPage = async () => ({ ok: true, status: 200, contentType: 'text/html', body: '<html><body><div id="app"></div></body></html>' });
+  const searchFn = async () => ({
+    organic: [{ url: SPA2, title: 'Terrible Love', position: 1 }],
+    knowledge: { placeId: OURS_PID, website: 'http://terriblelovecoffee.com/', title: 'Terrible Love' },
+  });
+  const r = await discoverWebsite(kgBiz, { searchFn, fetchPage });
+  assert.equal(r.status, 'HAS_WEBSITE');
+  assert.match(r.website, /terriblelovecoffee\.com/);
+  assert.ok(r.reasons.includes('place_id_match'));
+});
+
+test('KP website is trusted ONLY when its place_id matches our shop (different entity ⇒ not authoritative)', async () => {
+  const searchFn = async () => ({ organic: [], knowledge: { placeId: 'ChIJ_DIFFERENT_ENTITY', website: 'https://some-samename.com' } });
+  const r = await discoverWebsite(kgBiz, { searchFn, fetchPage: failFetch });
+  assert.notEqual(r.status, 'HAS_WEBSITE');
+});
+
+test('KP (place_id match) reporting NO website + only aggregator presence → NO_WEBSITE (keep the lead)', async () => {
+  const searchFn = async () => ({
+    organic: [{ url: 'https://facebook.com/terriblelove', title: 'Terrible Love', position: 1 }],
+    knowledge: { placeId: OURS_PID, website: null, phone: '(512) 555-0148' },
+  });
+  const r = await discoverWebsite(kgBiz, { searchFn, fetchPage: failFetch });
+  assert.equal(r.status, 'NO_WEBSITE');               // Google: no site for OUR entity; FB doesn't override
+});
+
+test('KP "no website" does NOT override real uncertainty (a bot-blocked own-domain candidate)', async () => {
+  const searchFn = async () => ({
+    organic: [{ url: 'https://terriblelove.com', title: 'Terrible Love', position: 1 }],
+    knowledge: { placeId: OURS_PID, website: null },
+  });
+  const r = await discoverWebsite(kgBiz, { searchFn, fetchPage: async () => ({ ok: false, status: 403 }) });
+  assert.equal(r.status, 'UNCERTAIN');                // a real site we couldn't read — stay unsure
+});
+
+test('KP "no website" overrides DIRECTORY noise (not an own domain) → NO_WEBSITE (keep the lead)', async () => {
+  // The đậm-coffee-bar case from a live run: Google KP (place_id matched) says no website, but a
+  // directory that lists the shop's phone+address scores high enough to look "uncertain". A
+  // directory is not a plausibly-own domain, so it must NOT suppress a genuine no-website lead.
+  const DIR = 'https://citylistings.example/austin/terrible-love';
+  const fetchPage = async (u) => (u === DIR
+    ? { ok: true, status: 200, contentType: 'text/html',
+        body: '<html><body>Terrible Love — 3908 Avenue B, Austin TX 78751 <a href="tel:+15125550148">call</a></body></html>' }
+    : { ok: false, status: 'FAILED' });
+  const searchFn = async () => ({
+    organic: [{ url: DIR, title: 'Terrible Love | City Listings', position: 1 }],
+    knowledge: { placeId: OURS_PID, website: null, phone: '(512) 555-0148' },
+  });
+  const biz = { name: 'Terrible Love', city: 'Austin', state: 'TX', zip: '78751', street: '3908 Avenue B', phone: '(512) 555-0148', placeId: OURS_PID };
+  const r = await discoverWebsite(biz, { searchFn, fetchPage });
+  assert.equal(r.status, 'NO_WEBSITE');
+  assert.ok(r.reasons.includes('knowledge_panel_no_site'));
+});
+
+test('KP phone backfills a missing phone, letting an own-domain page confirm', async () => {
+  const biz5 = { name: 'Sunrise Diner', city: 'Austin', state: 'TX', placeId: OURS_PID, phone: null };
+  const SITE = 'https://sunrisediner.com';
+  const searchFn = async () => ({
+    organic: [{ url: SITE, title: 'Sunrise Diner', position: 1 }],
+    knowledge: { placeId: OURS_PID, website: null, phone: '(512) 555-0148' },
+  });
+  const fetchPage = async (u) => (u === SITE
+    ? { ok: true, status: 200, contentType: 'text/html', body: '<html><body>Sunrise Diner <a href="tel:+15125550148">call</a></body></html>' }
+    : { ok: false, status: 'FAILED' });
+  const r = await discoverWebsite(biz5, { searchFn, fetchPage });
+  assert.equal(r.status, 'HAS_WEBSITE');              // backfilled phone matched the page
+  assert.match(r.website, /sunrisediner\.com/);
+});
