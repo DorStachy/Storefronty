@@ -26,8 +26,8 @@ switch (cmd) {
     const city = opts.city || 'Austin, TX';
     const limit = Number(opts.limit || 10);
     const engine = opts.engine || config.researcher.engine;
-    const searchFn = makeSearchFn({ engine: config.search.engine, apiKey: config.search.serperKey });
-    console.log(`Researching ${niche} in "${city}" via ${engine} (limit ${limit}, discovery=${searchFn ? config.search.engine : 'off — set SERPER_API_KEY'})…`);
+    const searchFn = makeSearchFn(config.search);
+    console.log(`Researching ${niche} in "${city}" via ${engine} (limit ${limit}, discovery=${searchFn ? config.search.engine : 'off — set SERPER_API_KEY or SERPAPI_KEY'})…`);
     const r = await seedFromResearch(db, { niche, city, limit, engine, apiKey: config.researcher.googleKey, searchFn });
     console.log(`  found ${r.found} truly-no-website shops · inserted ${r.inserted} new · skipped ${r.skipped} dup`);
     break;

@@ -26,8 +26,9 @@ export const config = {
     googleKey: E.GOOGLE_PLACES_KEY || '',
   },
   search: {                                    // web search used for website + social discovery
-    engine: E.SEARCH_ENGINE || 'serper',
+    engine: E.SEARCH_ENGINE || 'serper',       // 'serper' (Serper.dev) | 'serpapi' (SerpApi) | 'mock'
     serperKey: E.SERPER_API_KEY || '',
+    serpapiKey: E.SERPAPI_KEY || '',
   },
   mail: {
     user: E.GMAIL_USER || '',

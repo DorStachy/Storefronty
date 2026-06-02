@@ -41,7 +41,12 @@ npm test                                                 # run the test suite
   double-sends if a tick re-fires.
 - ✅ **Hardening (audit punch-list):** SSRF-safe fetch (private/loopback/redirect-validated),
   XSS-escaped builder + salesman + notifier HTML, scheme-checked hrefs, search-API failures
-  surfaced (not silently downgraded to UNCERTAIN). **38 tests passing.**
+  surfaced and forced to UNCERTAIN, aggregator denylist hardened (Apple/Google Maps, Wanderboat,
+  etc.), Places `websiteUri` pointing at an aggregator (linktr.ee, Instagram) no longer kills the
+  lead — it goes through discovery instead. Directory-listing guard: a page with your phone +
+  city but no name evidence in title/domain is NOT accepted as your site. Address parsed for
+  street/zip so discovery has more signal when phone is missing. **SerpApi** supported alongside
+  Serper.dev (`SEARCH_ENGINE=serpapi` + `SERPAPI_KEY`). **45 tests passing.**
 - ⬜ M4 inbox+classifier · M5 editor+approvals · M6 end-to-end + dashboard · M7 ready-for-real.
 
 **To switch from dry-run to really sending:** put `GMAIL_USER`, `GMAIL_APP_PASSWORD`, and a real

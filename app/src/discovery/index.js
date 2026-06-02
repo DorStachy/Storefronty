@@ -9,7 +9,8 @@ import { last10, digits, host, registrable, distinctiveTokens, areaCode } from '
 
 const DENY = ['facebook.com', 'instagram.com', 'linktr.ee', 'linktree.com', 'yelp.com', 'tripadvisor.com',
   'opentable.com', 'resy.com', 'fresha.com', 'booksy.com', 'vagaro.com', 'sites.google.com', 'business.site',
-  'mapquest.com', 'google.com', 'maps.google.com', 'doordash.com', 'ubereats.com', 'grubhub.com', 'nextdoor.com',
+  'mapquest.com', 'google.com', 'maps.google.com', 'maps.apple.com', 'duckduckgo.com', 'bing.com', 'waze.com',
+  'doordash.com', 'ubereats.com', 'grubhub.com', 'nextdoor.com', 'wanderboat.ai',
   'foursquare.com', 'bbb.org', 'yellowpages.com', 'twitter.com', 'x.com', 'tiktok.com', 'linkedin.com', 'youtube.com'];
 export const isAggregator = (h) => DENY.some((d) => h === d || h.endsWith('.' + d) || registrable(h) === d);
 
@@ -58,6 +59,15 @@ export function scoreCandidate(biz, cand, page) {
   const ldCity = ld?.address?.addressLocality;
   if (ldCity && biz.city && ldCity.toLowerCase() !== String(biz.city).toLowerCase() && !blob.includes(String(biz.city).toLowerCase())) {
     score -= 3; reasons.push('-conflict_city');
+  }
+
+  // Directory-listing guard. A page can legitimately have the shop's phone without being the
+  // shop's site (yelp/wanderboat/postcard list shops with their full contact info). The strong
+  // accept-bit requires either the shop's distinctive name on the page (title cov) OR the
+  // distinctive tokens in the registrable domain — otherwise the candidate is "online presence
+  // (mentioned somewhere)", not "owns this domain". Pure location-anchor signals are NOT enough.
+  if (strong && !reasons.includes('name') && !reasons.includes('domain_token')) {
+    strong = false; reasons.push('-name_missing');
   }
   return { score, ownSite: true, strong, presence: false, reasons };
 }

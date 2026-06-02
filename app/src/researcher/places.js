@@ -2,6 +2,9 @@
 // make a tailored site: real description, opening hours, rating, review count, price level, type.
 // (No email field exists in Places — email discovery / manual entry happens later; during local
 // tests the salesman sends to your test inbox anyway.)
+import { host as urlHost } from '../util/text.js';
+import { isAggregator } from '../discovery/index.js';
+
 const NICHE_QUERY = {
   barbershop: 'barber shop',
   salon: 'hair salon',
@@ -16,6 +19,39 @@ const FIELD_MASK = [
   'places.editorialSummary', 'places.googleMapsUri',
 ].join(',');
 
+// Map one raw Places result into our lead shape. Exported for unit-testing the websiteUri
+// filtering rule (aggregator URIs don't count as "they have a website").
+export function mapPlace(p, { niche, city }) {
+  const wu = p.websiteUri || null;
+  const wuHost = wu ? urlHost(wu) : '';
+  const wuIsAggregator = wuHost ? isAggregator(wuHost) : false;
+  return {
+    name: p.displayName?.text || 'Unknown',
+    niche,
+    city,
+    address: p.formattedAddress || null,
+    phone: p.nationalPhoneNumber || null,
+    email: null,
+    instagram: null,
+    websiteUri: wu,
+    // Places' websiteUri sometimes points at an aggregator (linktr.ee, instagram.com, a
+    // facebook page). That's not a real "they have their own site" signal — let discovery
+    // verify properly. hasWebsite is true only when the URI is a non-aggregator host.
+    hasWebsite: !!wu && !wuIsAggregator,
+    vibe: p.primaryTypeDisplayName?.text || (p.types || [])[0] || niche,
+    source: `places:${p.id}`,
+    details: {
+      summary: p.editorialSummary?.text || null,
+      rating: p.rating ?? null,
+      reviewCount: p.userRatingCount ?? null,
+      priceLevel: p.priceLevel || null,
+      primaryType: p.primaryTypeDisplayName?.text || null,
+      hours: p.regularOpeningHours?.weekdayDescriptions || null,
+      mapsUri: p.googleMapsUri || null,
+    },
+  };
+}
+
 export async function search({ niche, city, limit = 20, apiKey }) {
   if (!apiKey) throw new Error('GOOGLE_PLACES_KEY is not set (set it in app/.env or use RESEARCHER_ENGINE=mock)');
   const textQuery = `${NICHE_QUERY[niche] || niche} in ${city}`;
@@ -26,27 +62,5 @@ export async function search({ niche, city, limit = 20, apiKey }) {
   });
   if (!res.ok) throw new Error(`Places API ${res.status}: ${await res.text()}`);
   const data = await res.json();
-  return (data.places || []).map((p) => ({
-    name: p.displayName?.text || 'Unknown',
-    niche,
-    city,
-    address: p.formattedAddress || null,
-    phone: p.nationalPhoneNumber || null,
-    email: null,
-    instagram: null,
-    websiteUri: p.websiteUri || null,
-    hasWebsite: !!p.websiteUri,
-    vibe: p.primaryTypeDisplayName?.text || (p.types || [])[0] || niche,
-    source: `places:${p.id}`,
-    // the rich profile the builder (and later the AI builder) can draw on:
-    details: {
-      summary: p.editorialSummary?.text || null,
-      rating: p.rating ?? null,
-      reviewCount: p.userRatingCount ?? null,
-      priceLevel: p.priceLevel || null,
-      primaryType: p.primaryTypeDisplayName?.text || null,
-      hours: p.regularOpeningHours?.weekdayDescriptions || null,
-      mapsUri: p.googleMapsUri || null,
-    },
-  }));
+  return (data.places || []).map((p) => mapPlace(p, { niche, city }));
 }

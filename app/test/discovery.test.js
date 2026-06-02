@@ -21,11 +21,14 @@ test('scoreCandidate: the shop\'s own phone on the page is a strong, accepting s
   assert.ok(sc.score >= 6);
 });
 
-test('isAggregator flags social/directory hosts', () => {
+test('isAggregator flags social/directory hosts (incl. mapping aggregators)', () => {
   assert.ok(isAggregator('facebook.com'));
   assert.ok(isAggregator('m.facebook.com'));
   assert.ok(isAggregator('yelp.com'));
+  assert.ok(isAggregator('maps.apple.com'));   // Apple Maps place pages aren't a shop's own site
+  assert.ok(isAggregator('maps.google.com'));
   assert.ok(!isAggregator('cielitolindocafe.com'));
+  assert.ok(!isAggregator('apple.com'));        // apple.com itself is not denied (a hypothetical Apple Store listing)
 });
 
 test('SAME NAME, DIFFERENT LOCATION: picks the local site, never the foreign same-name one', async () => {
@@ -66,6 +69,22 @@ test('Places websiteUri is verified, not blindly trusted (phone match accepts it
   const r = await discoverWebsite({ ...biz, websiteUri: LOCAL }, { searchFn: null, fetchPage });
   assert.equal(r.status, 'HAS_WEBSITE');
   assert.match(r.website, /cielitolindocafe\.com/);
+});
+
+test('directory-listing guard: shop phone + city on an unrelated domain is NOT accepted as their site', async () => {
+  // A wanderboat/postcard-style directory: the shop's phone and city are on the page (because
+  // they're listing every cafe in town), but the domain has nothing to do with the shop. Without
+  // this guard we used to ACCEPT it as HAS_WEBSITE and drop the lead. With the guard: UNCERTAIN.
+  const DIRECTORY = 'https://postcard.inc/places/cielito-lindo-cafe-austin-xyz';
+  const dirPages = {
+    [DIRECTORY]: { ok: true, status: 200, contentType: 'text/html',
+      body: '<html><body>Austin TX restaurants and cafes <a href="tel:+15125550199">(512) 555-0199</a></body></html>' },
+  };
+  const dirFetch = async (url) => dirPages[url] || { ok: false, status: 'FAILED' };
+  const searchFn = async () => [{ url: DIRECTORY, title: 'Restaurants in Austin · postcard.inc', position: 1 }];
+  const r = await discoverWebsite(biz, { searchFn, fetchPage: dirFetch });
+  assert.notEqual(r.status, 'HAS_WEBSITE');                  // must NOT be accepted as their site
+  assert.equal(r.status, 'UNCERTAIN');                       // we are not sure — needs a human
 });
 
 test('search-API failures surface via onSearchError AND degrade to UNCERTAIN (never NO_WEBSITE)', async () => {

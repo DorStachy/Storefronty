@@ -32,3 +32,18 @@ export function nameCoverage(name, ...haystacks) {
   const hay = haystacks.join(' ').toLowerCase();
   return toks.filter((t) => hay.includes(t)).length / toks.length;
 }
+
+// Parse a Places-style "street address, city, state ZIP, country" string into the bits
+// discovery's scoreCandidate consumes (street + zip). Best-effort — sloppy addresses are fine,
+// we just won't extract as much. Strips "apt/ste/unit/#" suffixes from the street so the prefix
+// matches what real shop websites actually print on contact pages.
+export function parseAddress(address) {
+  const s = String(address || '').trim();
+  if (!s) return { street: '', zip: '' };
+  const zipMatch = s.match(/\b(\d{5})(?:-\d{4})?\b/);
+  const zip = zipMatch ? zipMatch[1] : '';
+  const firstPart = s.split(',')[0].trim();
+  // Drop apt/ste/unit/# tails: "411 Brazos St APT 101" → "411 Brazos St"
+  const street = firstPart.replace(/\s+(apt|ste|suite|unit|#)\.?\s*\S+.*$/i, '').trim();
+  return { street, zip };
+}

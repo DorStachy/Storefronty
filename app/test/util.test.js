@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { last10, distinctiveTokens, host, registrable, nameCoverage, areaCode } from '../src/util/text.js';
+import { last10, distinctiveTokens, host, registrable, nameCoverage, areaCode, parseAddress } from '../src/util/text.js';
 import { escapeHtml, safeUrl } from '../src/util/html.js';
 
 test('phone helpers', () => {
@@ -31,4 +31,15 @@ test('safeUrl allows http(s)/tel/mailto, blocks javascript:', () => {
   assert.equal(safeUrl('https://instagram.com/x'), 'https://instagram.com/x');
   assert.equal(safeUrl('javascript:alert(1)'), '#');
   assert.equal(safeUrl(''), '#');
+});
+
+test('parseAddress: street + zip from a US Places-style string, strips apt/ste tails', () => {
+  assert.deepEqual(
+    parseAddress('411 Brazos St APT 101, Austin, TX 78701, USA'),
+    { street: '411 Brazos St', zip: '78701' });
+  assert.deepEqual(
+    parseAddress('210 W 4th St Suite 200, Austin, TX 78701'),
+    { street: '210 W 4th St', zip: '78701' });
+  assert.deepEqual(parseAddress(''), { street: '', zip: '' });
+  assert.deepEqual(parseAddress('No commas no digits'), { street: 'No commas no digits', zip: '' });
 });
