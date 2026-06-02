@@ -25,9 +25,10 @@ switch (cmd) {
     const city = opts.city || 'Austin, TX';
     const limit = Number(opts.limit || 10);
     const engine = opts.engine || config.researcher.engine;
-    console.log(`Researching ${niche} in "${city}" via ${engine} (limit ${limit})…`);
-    const r = await seedFromResearch(db, { niche, city, limit, engine, apiKey: config.researcher.googleKey });
-    console.log(`  found ${r.found} no-website shops · inserted ${r.inserted} new · skipped ${r.skipped} dup`);
+    const verify = opts.verify === 'false' ? false : config.researcher.verify;
+    console.log(`Researching ${niche} in "${city}" via ${engine} (limit ${limit}, verify=${verify})…`);
+    const r = await seedFromResearch(db, { niche, city, limit, engine, apiKey: config.researcher.googleKey, verify });
+    console.log(`  found ${r.found} truly-no-website shops · inserted ${r.inserted} new · skipped ${r.skipped} dup`);
     break;
   }
   case 'tick': {
