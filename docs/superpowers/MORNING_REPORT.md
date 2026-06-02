@@ -13,17 +13,27 @@
 
 | Plan / Phase | What it is | Status |
 |---|---|---|
-| **1A** Fill→render core + Editorial theme | contract · deterministic fill · niche map · Editorial theme · renderer · buildSiteV2 | ✅ DONE — 143/143 tests, browser-verified |
-| **1B** Cheap-fill adapter (Gemini) | fill interface + grounding fact-sheet + Gemini REST adapter (key-gated) + fake | ⏳ building |
-| **1C** Luxe + Bold themes | two more themes on the same slot contract | ⏳ building |
-| **1D** Playwright screenshotter | headless render → 3 section screenshots for the email | ⏳ building |
-| **1E** Per-niche cold email | approved base copy + per-niche variants, CAN-SPAM | ⏳ building |
-| **1F** Pipeline wiring + real send | orchestrator: fill→render→screenshot→email; a real end-to-end cold-pitch send | ⏳ pending 1B–1E |
-| **2** Reply → Opus → hosted 48h | inbox classify · Opus build · Playwright QA gate · approval endpoint · 2-link reply email · hosting adapter | ⏳ pending |
+| **1A** Fill→render core + Editorial theme | contract · deterministic fill · niche map · Editorial theme · renderer · buildSiteV2 | ✅ DONE — browser-verified |
+| **1B** Cheap-fill adapter (Gemini) | grounding fact-sheet + Gemini REST adapter (key-gated) + anti-hallucination + fake | ✅ DONE — 19 tests; deterministic until you add `GEMINI_API_KEY` |
+| **1C** Luxe + Bold themes | two more themes on the same slot contract | ✅ DONE — both browser-verified, AA-checked |
+| **1D** Playwright screenshotter | headless render → 3 section screenshots for the email | ✅ DONE — real browser smoke |
+| **1E** Per-niche cold email | approved §5.6 copy + per-niche variants, 3 inline screenshots, CAN-SPAM | ✅ DONE — assembled email eyeballed |
+| **1F** Pipeline wiring + real send | orchestrator: fill→build→screenshot→email; real end-to-end cold-pitch send | ✅ DONE — **real send verified** (see below) |
+| **2** Reply → Opus → hosted 48h | inbox classify · Opus build · Playwright QA gate · approval endpoint · 2-link reply email · hosting adapter | ⏳ in progress |
 | **3** Portal (sell + take money) | Google auth · plans/quota · Stripe · claim-binding · dashboard | ⏳ pending |
 
 Phases 4–7 (volume, marketing site, tier polish, autonomy) are outlined in the design spec; they depend on
 real sending infra + accounts and are scoped for after launch.
+
+### ✅ PHASE 1 COMPLETE — the wow demo + the cold pitch works end-to-end
+
+The whole top of the funnel runs: a no-website shop → a gorgeous **theme-matched** demo built from its **real
+Google data** (barber→Luxe dark/gold, café/salon→Editorial warm, food-truck/gym→Bold electric) → **3 section
+screenshots** → a **personal, hand-typed cold email** (approved §5.6 copy, no emojis, no link) with those
+screenshots attached. **166/166 tests pass.** I ran one **real SMTP send** of Silva's themed demo through the
+exact production orchestrator — it landed in your test inbox `1dorlove1@gmail.com` (`dry:false`, messageId
+returned). The real shop is never emailed (TEST_RECIPIENT override). Three themes + the email were verified by
+me in the browser; screenshots are in the transcript.
 
 ---
 
