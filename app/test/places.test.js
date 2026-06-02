@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mapPlace } from '../src/researcher/places.js';
+import { mapPlace, search } from '../src/researcher/places.js';
 
 const base = { niche: 'cafe', city: 'Austin, TX' };
 
@@ -32,6 +32,31 @@ test('mapPlace: no websiteUri → hasWebsite=false', () => {
 test('mapPlace: an Instagram URI → hasWebsite=false', () => {
   const l = mapPlace({ id: '6', displayName: { text: 'Insta-only Cafe' }, websiteUri: 'https://www.instagram.com/some-handle' }, base);
   assert.equal(l.hasWebsite, false);
+});
+
+test('search paginates via nextPageToken up to the requested limit', async () => {
+  const mkPlaces = (prefix, n) => Array.from({ length: n }, (_, i) => ({ id: `${prefix}${i}`, displayName: { text: `${prefix}${i}` } }));
+  const calls = [];
+  const fetchImpl = async (url, opts) => {
+    const body = JSON.parse(opts.body);
+    calls.push(body);
+    if (!body.pageToken) return { ok: true, json: async () => ({ places: mkPlaces('A', 20), nextPageToken: 'TOK2' }) };
+    if (body.pageToken === 'TOK2') return { ok: true, json: async () => ({ places: mkPlaces('B', 20), nextPageToken: 'TOK3' }) };
+    return { ok: true, json: async () => ({ places: mkPlaces('C', 20) }) };   // no token → last page
+  };
+  const out = await search({ niche: 'cafe', city: 'Austin, TX', limit: 60, apiKey: 'k', fetchImpl });
+  assert.equal(out.length, 60);
+  assert.equal(calls.length, 3);                       // three pages fetched
+  assert.equal(calls[1].pageToken, 'TOK2');            // forwarded the token
+});
+
+test('search stops at the limit even if more pages exist', async () => {
+  const fetchImpl = async () => ({ ok: true, json: async () => ({
+    places: Array.from({ length: 20 }, (_, i) => ({ id: `x${i}`, displayName: { text: `x${i}` } })),
+    nextPageToken: 'MORE',
+  }) });
+  const out = await search({ niche: 'cafe', city: 'Austin, TX', limit: 25, apiKey: 'k', fetchImpl });
+  assert.equal(out.length, 25);                        // 20 + 5 from the second page, then stop
 });
 
 test('mapPlace: captures lat/lng + mapsUri into details (for identity-anchored discovery)', () => {

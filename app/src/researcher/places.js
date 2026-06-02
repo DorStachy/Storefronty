@@ -54,15 +54,26 @@ export function mapPlace(p, { niche, city }) {
   };
 }
 
-export async function search({ niche, city, limit = 20, apiKey }) {
+// Text Search v1 returns ≤20 places/page + a nextPageToken; we page through (up to ~60 total) until
+// `limit` is reached or the pages run out. fetchImpl is injectable so pagination is unit-tested offline.
+export async function search({ niche, city, limit = 20, apiKey, fetchImpl = fetch }) {
   if (!apiKey) throw new Error('GOOGLE_PLACES_KEY is not set (set it in app/.env or use RESEARCHER_ENGINE=mock)');
   const textQuery = `${NICHE_QUERY[niche] || niche} in ${city}`;
-  const res = await fetch('https://places.googleapis.com/v1/places:searchText', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Goog-Api-Key': apiKey, 'X-Goog-FieldMask': FIELD_MASK },
-    body: JSON.stringify({ textQuery, pageSize: Math.min(limit, 20) }),
-  });
-  if (!res.ok) throw new Error(`Places API ${res.status}: ${await res.text()}`);
-  const data = await res.json();
-  return (data.places || []).map((p) => mapPlace(p, { niche, city }));
+  const fieldMask = `${FIELD_MASK},nextPageToken`;
+  const out = [];
+  let pageToken;
+  do {
+    const body = { textQuery, pageSize: Math.min(limit - out.length, 20) };
+    if (pageToken) body.pageToken = pageToken;
+    const res = await fetchImpl('https://places.googleapis.com/v1/places:searchText', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Goog-Api-Key': apiKey, 'X-Goog-FieldMask': fieldMask },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new Error(`Places API ${res.status}: ${await res.text()}`);
+    const data = await res.json();
+    for (const p of (data.places || [])) out.push(mapPlace(p, { niche, city }));
+    pageToken = data.nextPageToken;
+  } while (pageToken && out.length < limit);
+  return out.slice(0, limit);
 }
