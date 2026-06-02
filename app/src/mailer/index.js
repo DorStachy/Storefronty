@@ -29,18 +29,19 @@ export function closeMailer() {
   cachedTransport = null;
 }
 
-export async function sendEmail({ to, from, subject, html, text }, config, { _transport = null, retries = 2, retryDelayMs = 500 } = {}) {
+export async function sendEmail({ to, from, subject, html, text, attachments }, config, { _transport = null, retries = 2, retryDelayMs = 500 } = {}) {
   const hasCreds = config.mail?.user && config.mail?.pass;
 
   if (!hasCreds && !_transport) {
     mkdirSync(OUTBOX, { recursive: true });
     const file = join(OUTBOX, `${Date.now()}-${(to || 'none').replace(/[^a-z0-9]/gi, '_')}.html`);
-    writeFileSync(file, `<!-- DRY RUN (not sent)\n  to: ${to}\n  subject: ${subject}\n-->\n${html}`);
+    const note = attachments?.length ? `\n  attachments: ${attachments.map((a) => a.filename).join(', ')}` : '';
+    writeFileSync(file, `<!-- DRY RUN (not sent)\n  to: ${to}\n  subject: ${subject}${note}\n-->\n${html}`);
     return { id: `dry-${Date.now()}`, dry: true, file };
   }
 
   const transport = _transport || (await getTransport(config));
-  const envelope = { from: from || `${config.mail.fromName} <${config.mail.user}>`, to, subject, html, text };
+  const envelope = { from: from || `${config.mail.fromName} <${config.mail.user}>`, to, subject, html, text, ...(attachments?.length ? { attachments } : {}) };
   let lastErr;
   for (let attempt = 1; attempt <= retries + 1; attempt++) {
     try {

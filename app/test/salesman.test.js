@@ -1,8 +1,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { renderSite } from '../src/builder/index.js';
-import { composeEmail1, sendColdEmail } from '../src/salesman/index.js';
+import { composeColdEmail, sendColdEmail } from '../src/salesman/index.js';
 import { openDatabase } from '../src/db.js';
+
+const shots = [
+  { name: 'hero', path: '/tmp/hero.png' },
+  { name: 'services', path: '/tmp/services.png' },
+  { name: 'gallery', path: '/tmp/gallery.png' },
+];
 
 const cfg = {
   mail: { user: '', pass: '', fromName: 'Michael', testRecipient: 'demo@local.test' },
@@ -32,14 +38,28 @@ test('builder still renders fine when there are no details (fallback defaults)',
   assert.ok(indexHtml.includes('From the menu'));
 });
 
-test('composeEmail1 builds a CAN-SPAM email with the preview link', () => {
-  const { subject, html, text } = composeEmail1(
-    { name: 'Fade Theory' }, { preview_url: 'http://localhost:4173/fade-theory/' }, cfg);
-  assert.match(subject, /Fade Theory/);
-  assert.ok(html.includes('http://localhost:4173/fade-theory/'));  // the preview link
-  assert.ok(html.includes('Storefronty LLC'));                     // physical address (CAN-SPAM)
+test('composeColdEmail = approved §5.6 copy, 3 inline screenshots, NO live link', () => {
+  const { subject, html, text, attachments } = composeColdEmail({ name: 'Fade Theory', niche: 'barbershop' }, { shots, config: cfg });
+  assert.equal(subject, 'a website for Fade Theory');
+  assert.ok(text.includes("My name's Michael and I'm a web designer"));
+  assert.ok(text.includes("I'll make those changes for free, so you can see I'm serious"));
+  assert.ok(text.includes("You're not signing up for anything."));
+  assert.ok(!/https?:\/\//.test(text), 'the cold email carries NO live link (link only comes after a reply)');
+  assert.ok(!/[\u{1F300}-\u{1FAFF}☀-➿←-⇿]/u.test(text), 'hand-typed: no emojis');
+  assert.equal(attachments.length, 3); // 3 section screenshots attached
+  assert.ok(html.includes('cid:shot0@storefronty') && html.includes('cid:shot2@storefronty')); // inline
+  assert.ok(html.includes('Storefronty LLC')); // physical address (CAN-SPAM)
   assert.ok(text.toLowerCase().includes('unsubscribe'));
   assert.ok(!html.includes('{{'));
+});
+
+test('composeColdEmail per-niche variant: services/menu wording + action phrase', () => {
+  const barber = composeColdEmail({ name: 'Fade Theory', niche: 'barbershop' }, { shots, config: cfg }).text;
+  assert.ok(barber.includes('your services'));
+  assert.ok(barber.includes('walk in or book'));
+  const cafe = composeColdEmail({ name: 'Bean There', niche: 'coffee shop' }, { shots, config: cfg }).text;
+  assert.ok(cafe.includes('your menu'));
+  assert.ok(cafe.includes('how many people walk in.')); // 'walk in' (food), ends the sentence
 });
 
 test('sendColdEmail (dry-run) records an outbound message', async () => {
@@ -63,23 +83,13 @@ test('sendColdEmail respects the suppression list', async () => {
   db.close();
 });
 
-test('composeEmail1 HTML-escapes an untrusted shop name (no XSS into the email body)', () => {
-  const { subject, html, text } = composeEmail1(
-    { name: '<script>alert(1)</script>Bad Cafe' },
-    { preview_url: 'http://localhost:4173/x/' }, cfg);
+test('composeColdEmail HTML-escapes an untrusted shop name (no XSS into the email body)', () => {
+  const { subject, html, text } = composeColdEmail({ name: '<script>alert(1)</script>Bad Cafe', niche: 'cafe' }, { shots, config: cfg });
   assert.ok(!html.includes('<script>alert(1)'), 'raw script tag must not appear in HTML');
   assert.ok(html.includes('&lt;script&gt;'), 'name is HTML-escaped in the body');
   // plain text is fine — text/plain rendering doesn't execute markup
   assert.ok(subject.includes('<script>'));
   assert.ok(text.includes('<script>'));
-});
-
-test('composeEmail1 neutralizes a javascript: preview link (button href is "#")', () => {
-  const { html } = composeEmail1(
-    { name: 'Fade Theory' },
-    { preview_url: 'javascript:alert(1)' }, cfg);
-  assert.ok(!html.includes('href="javascript:'), 'javascript: scheme rejected from href');
-  assert.ok(html.includes('href="#"'), 'href falls back to "#"');
 });
 
 test('sendColdEmail does NOT re-send if an outbound email1 already exists', async () => {
