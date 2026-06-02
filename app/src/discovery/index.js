@@ -63,9 +63,13 @@ export function scoreCandidate(biz, cand, page) {
 }
 
 // Discover and classify. searchFn(query)->[{url,title,snippet,position}]; fetchPage defaults to safeFetch.
+// cfg.onSearchError(query, err) is called per failed query (default: console.warn) so a Serper
+// outage doesn't degrade silently into UNCERTAIN noise that looks like organic uncertainty.
 export async function discoverWebsite(biz, { searchFn = null, fetchPage = safeFetch, cfg = {} } = {}) {
   const acceptScore = cfg.acceptScore ?? 6;
   const uncertainScore = cfg.uncertainScore ?? 3;
+  const onSearchError = cfg.onSearchError || ((q, err) => console.warn(`[discovery] search failed for ${q}: ${err.message || err}`));
+  let searchFailed = false;          // if true, we cannot claim NO_WEBSITE confidently
   const seen = new Set();
   const candidates = [];
   const add = (c) => { const h = host(c.url); if (h && !seen.has(h)) { seen.add(h); candidates.push({ ...c, host: h }); } };
@@ -80,12 +84,13 @@ export async function discoverWebsite(biz, { searchFn = null, fetchPage = safeFe
     ];
     for (const { q, phone } of queries) {
       let results = [];
-      try { results = await searchFn(q); } catch { results = []; }
+      try { results = await searchFn(q); }
+      catch (err) { onSearchError(q, err); results = []; searchFailed = true; }
       for (const r of results) add({ url: r.url, title: r.title, snippet: r.snippet, position: r.position, fromPhoneQuery: !!phone, source: 'search' });
     }
   }
 
-  let best = null, uncertain = false, presence = false;
+  let best = null, uncertain = searchFailed, presence = false;
   for (const cand of candidates) {
     if (isAggregator(cand.host)) { presence = true; continue; }
     let page = null;

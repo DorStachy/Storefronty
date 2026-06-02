@@ -36,7 +36,12 @@ npm test                                                 # run the test suite
   with graceful fallback when a field is missing.
 - ✅ **M3 (salesman):** composes the CAN-SPAM cold email (preview link + postal address +
   unsubscribe) and sends it — **dry-run** (writes to `public/_outbox/`) until Gmail creds are set,
-  then **real Gmail SMTP**. Suppression list enforced. `deployed → emailed`. **16 tests passing.**
+  then **real Gmail SMTP**. Suppression list enforced. `deployed → emailed`. Outbound HTML is
+  XSS-escaped, preview link is scheme-checked, and a per-lead idempotency guard prevents
+  double-sends if a tick re-fires.
+- ✅ **Hardening (audit punch-list):** SSRF-safe fetch (private/loopback/redirect-validated),
+  XSS-escaped builder + salesman + notifier HTML, scheme-checked hrefs, search-API failures
+  surfaced (not silently downgraded to UNCERTAIN). **38 tests passing.**
 - ⬜ M4 inbox+classifier · M5 editor+approvals · M6 end-to-end + dashboard · M7 ready-for-real.
 
 **To switch from dry-run to really sending:** put `GMAIL_USER`, `GMAIL_APP_PASSWORD`, and a real

@@ -67,3 +67,16 @@ test('Places websiteUri is verified, not blindly trusted (phone match accepts it
   assert.equal(r.status, 'HAS_WEBSITE');
   assert.match(r.website, /cielitolindocafe\.com/);
 });
+
+test('search-API failures surface via onSearchError AND degrade to UNCERTAIN (never NO_WEBSITE)', async () => {
+  const seen = [];
+  const onSearchError = (query, err) => seen.push({ query, msg: String(err.message || err) });
+  const boom = async () => { throw new Error('Serper 503: backend down'); };
+  const r = await discoverWebsite(biz, { searchFn: boom, fetchPage, cfg: { onSearchError } });
+  assert.ok(seen.length >= 1, 'onSearchError was called');
+  assert.match(seen[0].msg, /Serper 503/);
+  assert.ok(seen.every((s) => s.query.includes(biz.name)));
+  // If we couldn't verify, we must NOT confidently claim NO_WEBSITE — that would put a shop
+  // with a real site into outreach. The researcher will then drop UNCERTAIN leads, not email them.
+  assert.equal(r.status, 'UNCERTAIN');
+});

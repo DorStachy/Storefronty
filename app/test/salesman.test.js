@@ -62,3 +62,33 @@ test('sendColdEmail respects the suppression list', async () => {
   assert.equal(db.messagesFor(id).length, 0);
   db.close();
 });
+
+test('composeEmail1 HTML-escapes an untrusted shop name (no XSS into the email body)', () => {
+  const { subject, html, text } = composeEmail1(
+    { name: '<script>alert(1)</script>Bad Cafe' },
+    { preview_url: 'http://localhost:4173/x/' }, cfg);
+  assert.ok(!html.includes('<script>alert(1)'), 'raw script tag must not appear in HTML');
+  assert.ok(html.includes('&lt;script&gt;'), 'name is HTML-escaped in the body');
+  // plain text is fine — text/plain rendering doesn't execute markup
+  assert.ok(subject.includes('<script>'));
+  assert.ok(text.includes('<script>'));
+});
+
+test('composeEmail1 neutralizes a javascript: preview link (button href is "#")', () => {
+  const { html } = composeEmail1(
+    { name: 'Fade Theory' },
+    { preview_url: 'javascript:alert(1)' }, cfg);
+  assert.ok(!html.includes('href="javascript:'), 'javascript: scheme rejected from href');
+  assert.ok(html.includes('href="#"'), 'href falls back to "#"');
+});
+
+test('sendColdEmail does NOT re-send if an outbound email1 already exists', async () => {
+  const db = openDatabase(':memory:');
+  const { id } = db.insertLead({ name: 'Twice', niche: 'cafe' });
+  const r1 = await sendColdEmail(db, db.getLead(id), cfg);
+  assert.equal(r1.sent, true);
+  const r2 = await sendColdEmail(db, db.getLead(id), cfg);
+  assert.equal(r2.skipped, 'already_emailed');
+  assert.equal(db.messagesFor(id).length, 1);  // still just the one
+  db.close();
+});
