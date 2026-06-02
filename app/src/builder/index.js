@@ -75,7 +75,7 @@ function renderSocials(lead) {
   return links.length ? ` · ${links.join(' · ')}` : '';
 }
 
-export async function renderSite(lead, config) {
+export async function renderSite(lead, config, overrides = {}) {
   const d = DEFAULTS[lead.niche] || DEFAULTS.barbershop;
   const det = parseDetails(lead);
   const tpl = readFileSync(join(SITE, 'templates', TEMPLATE[lead.niche] || 'barbershop.html'), 'utf8');
@@ -108,6 +108,9 @@ export async function renderSite(lead, config) {
     svc3Name: escapeHtml(s[2][0]), svc3Desc: escapeHtml(s[2][1]), svc3Price: escapeHtml(s[2][2]),
     ownerEmail: escapeHtml(config.mail?.user || 'you@storefronty.com'),
     postalAddress: escapeHtml(config.postalAddress || ''),
+    // Editor overrides (e.g. an accent-colour <style>). Built from a fixed palette, not raw user
+    // text, so it is safe to inject unescaped. Empty string when there's no override.
+    injectHeadHtml: overrides.injectHeadHtml || '',
   };
   return {
     slug: slugify(lead.name) || `lead-${lead.id}`,
@@ -116,8 +119,8 @@ export async function renderSite(lead, config) {
   };
 }
 
-export async function build(lead, config) {
-  const { slug, indexHtml, pricingHtml } = await renderSite(lead, config);
+export async function build(lead, config, overrides = {}) {
+  const { slug, indexHtml, pricingHtml } = await renderSite(lead, config, overrides);
   const dir = join(PUBLIC_DIR, slug);
   mkdirSync(dir, { recursive: true });
   copyFileSync(join(SITE, 'styles.css'), join(PUBLIC_DIR, 'styles.css'));
