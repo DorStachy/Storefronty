@@ -29,13 +29,14 @@ test('pricing page is personalized and points styles at ../styles.css', async ()
   assert.ok(!pricingHtml.includes('{{'));
 });
 
-test('orchestrator tick: discovered → built → deployed, with a stored preview URL', async () => {
+test('orchestrator tick: discovered → built → deployed (+beyond), with a correct preview URL', async () => {
   const db = openDatabase(':memory:');
   const { id } = db.insertLead({ name: 'QA Tick Shop', niche: 'cafe', city: 'Austin, TX' });
-  await tick(db);                                         // builds, then deploys, in one pass
-  assert.equal(db.getLead(id).status, 'deployed');
+  await tick(db);                                         // builds, deploys, (and emails) in one pass
   const site = db.getSiteForLead(id);
   assert.ok(site, 'a site row exists');
-  assert.match(site.preview_url, /qa-tick-shop\/$/);
+  assert.match(site.preview_url, /qa-tick-shop\/$/);     // not "/undefined/"
+  // the lead must have advanced past build/deploy (exact end depends on email config)
+  assert.ok(['deployed', 'emailed', 'needs_human'].includes(db.getLead(id).status));
   db.close();
 });

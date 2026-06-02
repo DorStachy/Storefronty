@@ -92,3 +92,6 @@ footer .brand { display:block; margin-bottom: 8px; }
 
 /* demo ribbon */
 .demo-ribbon { background: var(--accent); color: var(--accent-ink); text-align:center; padding: 8px; font-weight: 700; font-size: 14px; }
+
+/* real Google rating/trust badge (filled by the builder when data exists) */
+.rating { display:inline-flex; align-items:center; gap:6px; margin: 14px 0 0; color: var(--accent); font-weight: 700; font-size: 15px; }

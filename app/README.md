@@ -30,9 +30,17 @@ npm test                                                 # run the test suite
   **Researcher** (mock + Google Places engines) + orchestrator seeding + CLI.
 - ✅ **M2 (build + deploy):** **Builder** (lead → finished site + pricing page) + **Deployer**
   (local URL) + orchestrator handlers `discovered → built → deployed` + `npm run serve`.
-  Verified end-to-end on real Google Places leads. **11 tests passing.**
-- ⬜ M3 salesman (email) · M4 inbox+classifier · M5 editor+approvals · M6 end-to-end + dashboard ·
-  M7 ready-for-real. (See `../ARCHITECTURE.md` §6.)
+- ✅ **Enriched data contract:** the Researcher pulls a rich profile from Google Places (real
+  description, opening hours, rating, review count, price level, type) and stores it on the lead;
+  the Builder uses it (real tagline, real hours, a `★ rating · N Google reviews` trust badge),
+  with graceful fallback when a field is missing.
+- ✅ **M3 (salesman):** composes the CAN-SPAM cold email (preview link + postal address +
+  unsubscribe) and sends it — **dry-run** (writes to `public/_outbox/`) until Gmail creds are set,
+  then **real Gmail SMTP**. Suppression list enforced. `deployed → emailed`. **16 tests passing.**
+- ⬜ M4 inbox+classifier · M5 editor+approvals · M6 end-to-end + dashboard · M7 ready-for-real.
+
+**To switch from dry-run to really sending:** put `GMAIL_USER`, `GMAIL_APP_PASSWORD`, and a real
+`TEST_RECIPIENT` in `app/.env`. (M4 — reading replies — needs the same test Gmail.)
 
 Run the pipeline: `npm run research -- --niche cafe --city "Austin, TX"` then `npm run tick` then
 `npm run serve` and open the printed URL.

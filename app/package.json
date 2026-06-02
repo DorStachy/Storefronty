@@ -13,5 +13,8 @@
     "serve": "node src/server.js",
     "cli": "node --experimental-sqlite src/cli.js",
     "test": "node --experimental-sqlite --test"
+  },
+  "dependencies": {
+    "nodemailer": "^6.10.1"
   }
 }

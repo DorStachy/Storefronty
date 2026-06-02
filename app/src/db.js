@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS leads (
   instagram TEXT,
   has_website INTEGER DEFAULT 0,
   vibe TEXT,
+  details TEXT,
   source TEXT,
   status TEXT NOT NULL DEFAULT 'discovered',
   dedup_key TEXT UNIQUE,
@@ -66,11 +67,11 @@ export function openDatabase(path) {
       const existing = db.prepare('SELECT id FROM leads WHERE dedup_key = ?').get(dedup);
       if (existing) return { id: existing.id, inserted: false };
       const info = db.prepare(`INSERT INTO leads
-        (name,niche,city,address,phone,email,instagram,has_website,vibe,source,status,dedup_key,created_at,updated_at)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
+        (name,niche,city,address,phone,email,instagram,has_website,vibe,details,source,status,dedup_key,created_at,updated_at)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
         lead.name, lead.niche, lead.city ?? null, lead.address ?? null, lead.phone ?? null,
         lead.email ?? null, lead.instagram ?? null, lead.hasWebsite ? 1 : 0, lead.vibe ?? null,
-        lead.source ?? null, 'discovered', dedup, ts, ts);
+        lead.details ? JSON.stringify(lead.details) : null, lead.source ?? null, 'discovered', dedup, ts, ts);
       const id = Number(info.lastInsertRowid);
       api.recordEvent(id, 'discovered', { source: lead.source });
       return { id, inserted: true };
@@ -110,6 +111,13 @@ export function openDatabase(path) {
     },
     getSiteForLead: (leadId) => db.prepare('SELECT * FROM sites WHERE lead_id = ? ORDER BY id DESC').get(leadId),
     setSitePreview: (siteId, url) => db.prepare('UPDATE sites SET preview_url = ? WHERE id = ?').run(url, siteId),
+
+    addMessage(leadId, m) {
+      const info = db.prepare(`INSERT INTO messages (lead_id,direction,type,subject,body,provider_id,created_at)
+        VALUES (?,?,?,?,?,?,?)`).run(leadId, m.direction, m.type ?? null, m.subject ?? null, m.body ?? null, m.providerId ?? null, now());
+      return Number(info.lastInsertRowid);
+    },
+    messagesFor: (leadId) => db.prepare('SELECT * FROM messages WHERE lead_id = ? ORDER BY id').all(leadId),
   };
   return api;
 }

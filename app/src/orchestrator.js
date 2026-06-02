@@ -3,6 +3,7 @@
 import { research } from './researcher/index.js';
 import { build } from './builder/index.js';
 import { deploy } from './deployer/index.js';
+import { sendColdEmail } from './salesman/index.js';
 import { config } from './config.js';
 
 // Run the researcher and persist new leads as 'discovered'. Returns a summary.
@@ -30,6 +31,13 @@ const HANDLERS = {
     const { previewUrl } = await deploy(lead, site, config);
     db.setSitePreview(site.id, previewUrl);
     db.setStatus(lead.id, 'deployed', { previewUrl });
+  },
+  // M3: send the cold email (to the test inbox in test mode)
+  deployed: async (db, lead) => {
+    const r = await sendColdEmail(db, lead, config);
+    if (r.needsHuman) { db.setStatus(lead.id, 'needs_human', { reason: r.skipped }); return; }
+    if (r.skipped) { db.recordEvent(lead.id, 'send_skipped', { reason: r.skipped }); return; }
+    db.setStatus(lead.id, 'emailed', { to: r.to, dry: r.dry, id: r.id });
   },
 };
 

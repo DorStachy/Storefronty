@@ -31,6 +31,7 @@ for (const shop of shops) {
   const s = shop.services || [];
   const map = {
     ...config, ...shop,
+    ratingBadge: shop.ratingBadge ?? '',
     svc1Name: s[0]?.name ?? '', svc1Desc: s[0]?.desc ?? '', svc1Price: s[0]?.price ?? '',
     svc2Name: s[1]?.name ?? '', svc2Desc: s[1]?.desc ?? '', svc2Price: s[1]?.price ?? '',
     svc3Name: s[2]?.name ?? '', svc3Desc: s[2]?.desc ?? '', svc3Price: s[2]?.price ?? '',
