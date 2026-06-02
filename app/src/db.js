@@ -50,6 +50,25 @@ CREATE TABLE IF NOT EXISTS approvals (
   lead_id INTEGER, kind TEXT, payload TEXT,
   status TEXT NOT NULL DEFAULT 'pending', created_at TEXT NOT NULL, decided_at TEXT
 );
+CREATE TABLE IF NOT EXISTS accounts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  lead_id INTEGER,                      -- the bound site (from the signed claim link)
+  email TEXT UNIQUE NOT NULL,
+  password_hash TEXT,                   -- scrypt salt:hash; null for Google-only accounts
+  auth_provider TEXT DEFAULT 'password',
+  plan TEXT DEFAULT 'none',             -- none|starter|pro|premium
+  plan_status TEXT DEFAULT 'inactive',  -- inactive|active|past_due|canceled
+  stripe_customer TEXT,
+  free_change_used INTEGER DEFAULT 0,
+  created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS change_requests (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  account_id INTEGER, lead_id INTEGER, body TEXT,
+  kind TEXT DEFAULT 'change',           -- change|free (the post-signup free one)
+  status TEXT NOT NULL DEFAULT 'queued',-- queued|done
+  created_at TEXT NOT NULL
+);
 `;
 
 const now = () => new Date().toISOString();
@@ -178,6 +197,30 @@ export function openDatabase(path) {
       return Number(info.lastInsertRowid);
     },
     messagesFor: (leadId) => db.prepare('SELECT * FROM messages WHERE lead_id = ? ORDER BY id').all(leadId),
+
+    // --- portal accounts + change requests (Phase 3) ---
+    addAccount({ leadId, email, passwordHash, authProvider = 'password' }) {
+      const info = db.prepare(`INSERT INTO accounts (lead_id,email,password_hash,auth_provider,created_at)
+        VALUES (?,?,?,?,?)`).run(leadId ?? null, String(email).toLowerCase().trim(), passwordHash ?? null, authProvider, now());
+      return Number(info.lastInsertRowid);
+    },
+    getAccount: (id) => db.prepare('SELECT * FROM accounts WHERE id = ?').get(id),
+    getAccountByEmail: (email) => db.prepare('SELECT * FROM accounts WHERE email = ?').get(String(email || '').toLowerCase().trim()),
+    getAccountByLead: (leadId) => db.prepare('SELECT * FROM accounts WHERE lead_id = ? ORDER BY id DESC').get(leadId),
+    setAccountPlan: (id, { plan, planStatus, stripeCustomer }) =>
+      db.prepare('UPDATE accounts SET plan = ?, plan_status = ?, stripe_customer = COALESCE(?, stripe_customer) WHERE id = ?')
+        .run(plan, planStatus, stripeCustomer ?? null, id),
+    markFreeChangeUsed: (id) => db.prepare('UPDATE accounts SET free_change_used = 1 WHERE id = ?').run(id),
+
+    addChangeRequest({ accountId, leadId, body, kind = 'change' }) {
+      const info = db.prepare(`INSERT INTO change_requests (account_id,lead_id,body,kind,status,created_at)
+        VALUES (?,?,?,?,?,?)`).run(accountId ?? null, leadId ?? null, body ?? '', kind, 'queued', now());
+      return Number(info.lastInsertRowid);
+    },
+    changeRequestsFor: (accountId) => db.prepare('SELECT * FROM change_requests WHERE account_id = ? ORDER BY id').all(accountId),
+    // Count of quota-consuming ('change') requests in a given 'YYYY-MM' month.
+    changeRequestsThisMonth: (accountId, monthPrefix) =>
+      db.prepare("SELECT COUNT(*) n FROM change_requests WHERE account_id = ? AND kind = 'change' AND substr(created_at,1,7) = ?").get(accountId, monthPrefix).n,
   };
   return api;
 }
