@@ -54,5 +54,8 @@ export const icon = (name) => {
   return span;
 };
 
+// The iridescent signature orb (AI avatar + console hero). `cls`: '' (30px), 'sm', 'lg'.
+export const orb = (cls = '') => h('span', { class: `orb ${cls}`.trim(), 'aria-hidden': 'true' });
+
 export const initials = (s) => String(s || '?').trim().slice(0, 1).toUpperCase();
 export const fmtDate = (iso) => { try { return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }); } catch { return ''; } };

@@ -1,4 +1,4 @@
-import { h, icon, initials } from '../ui.js';
+import { h, icon, initials, orb } from '../ui.js';
 
 // The AI request console — a conversational surface. The owner types what they'd like changed; the
 // assistant replies and the request enters the rebuild pipeline. ctx = { me, api, navigate, toast }.
@@ -21,13 +21,14 @@ export async function ConsoleView(ctx) {
 // ---- messages -------------------------------------------------------------
 const who = (cls, label) => h('div', { class: `who ${cls}` }, label);
 const userMsg = (ctx, text) => h('div', { class: 'msg user' }, who('', initials(ctx.me.account.email)), h('div', { class: 'bubble' }, text));
-const aiMsg = (text) => h('div', { class: 'msg ai' }, who('', '✦'), h('div', { class: 'bubble' }, text));
-const aiTyping = () => h('div', { class: 'msg ai' }, who('', '✦'), h('div', { class: 'bubble' }, h('span', { class: 'typing' }, h('i'), h('i'), h('i'))));
+const aiMsg = (text) => h('div', { class: 'msg ai' }, orb(), h('div', { class: 'bubble' }, text));
+const aiTyping = () => h('div', { class: 'msg ai' }, orb(), h('div', { class: 'bubble' }, h('span', { class: 'typing' }, h('i'), h('i'), h('i'))));
 
 function emptyState(ctx, fill) {
   const free = ctx.me.quota.freeAvailable;
   const chips = ['Make the header navy', 'Add my photos', 'Change the fonts', 'Fix my opening hours'];
   return h('div', { class: 'empty' },
+    orb('lg'),
     h('div', { class: 'big' }, free ? 'What would you like to change?' : 'What should I tweak next?'),
     h('p', {}, free
       ? "Your first change is free — tell me in plain words and I'll rebuild your site."
