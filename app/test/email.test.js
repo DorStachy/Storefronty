@@ -1,6 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { extractEmails, scoreEmail, discoverEmail } from '../src/email/index.js';
+import { extractEmails, scoreEmail, discoverEmail, verifyEmailDeliverable } from '../src/email/index.js';
+
+// A fake MX resolver so email tests stay offline/hermetic (no real DNS).
+const mxOk = async () => [{ exchange: 'mx.google.com', priority: 10 }];
 
 const id = { name: 'Cielito Lindo Cafe', city: 'Austin', state: 'TX', phone: '(512) 555-0199' };
 
@@ -90,13 +93,35 @@ test('discoverEmail: finds + verifies an email from a fetched contact page (mail
     ? { ok: true, status: 200, contentType: 'text/html',
         body: '<html><body>Cielito Lindo Cafe · (512) 555-0199 · <a href="mailto:cielitolindoatx@gmail.com">email</a></body></html>' }
     : { ok: false, status: 'FAILED' });
-  const r = await discoverEmail(id, { searchFn, fetchPage });
+  const r = await discoverEmail(id, { searchFn, fetchPage, cfg: { resolveMx: mxOk } });
   assert.equal(r.email, 'cielitolindoatx@gmail.com');
   assert.equal(r.confidence, 'high');
+  assert.equal(r.deliverable, true);   // domain's MX confirmed → we can contact them
 });
 
 test('discoverEmail: returns null when nothing verifiable is found', async () => {
   const searchFn = async () => ({ organic: [{ url: 'https://x.example', title: 'unrelated', snippet: 'nothing', position: 1 }] });
   const r = await discoverEmail(id, { searchFn, fetchPage: async () => ({ ok: true, status: 200, contentType: 'text/html', body: 'no emails here' }) });
   assert.equal(r.email, null);
+});
+
+test('verifyEmailDeliverable: a domain with MX records is deliverable', async () => {
+  assert.equal(await verifyEmailDeliverable('hi@cielitolindocafe.com', { resolveMx: mxOk }), true);
+});
+
+test('verifyEmailDeliverable: a domain that can\'t receive mail (no MX / does not exist) → false', async () => {
+  const noMx = async () => { const e = new Error('no data'); e.code = 'ENODATA'; throw e; };
+  const missing = async () => { const e = new Error('not found'); e.code = 'ENOTFOUND'; throw e; };
+  assert.equal(await verifyEmailDeliverable('hi@nomx.example', { resolveMx: noMx }), false);
+  assert.equal(await verifyEmailDeliverable('hi@missing.example', { resolveMx: missing }), false);
+  assert.equal(await verifyEmailDeliverable('hi@empty.example', { resolveMx: async () => [] }), false);
+});
+
+test('verifyEmailDeliverable: a transient DNS error is unknown (null), not a false negative', async () => {
+  const flaky = async () => { const e = new Error('temp'); e.code = 'ESERVFAIL'; throw e; };
+  assert.equal(await verifyEmailDeliverable('hi@flaky.example', { resolveMx: flaky }), null);
+});
+
+test('verifyEmailDeliverable: a malformed address is not deliverable', async () => {
+  assert.equal(await verifyEmailDeliverable('notanemail', { resolveMx: mxOk }), false);
 });

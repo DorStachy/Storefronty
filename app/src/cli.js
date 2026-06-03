@@ -54,7 +54,7 @@ switch (cmd) {
       onLog: (m) => console.log(m),
     });
     console.log(`\nFunnel: scanned ${r.scanned} → no-website ${r.noWebsite} → has-email ${r.hasEmail} → SENDABLE ${r.sendable.length}`);
-    for (const s of r.sendable) console.log(`  #${s.leadId}  ${s.name} (${s.city})  ·  ${s.email} [${s.confidence}]  ·  ${s.reasons.join(',')}`);
+    for (const s of r.sendable) console.log(`  #${s.leadId}  ${s.name} (${s.city})  ·  ${s.email} [${s.confidence}${s.deliverable === false ? '/undeliverable' : ''}]${s.hasSocials ? '  · has-socials' : ''}  ·  ${s.reasons.join(',')}`);
     break;
   }
   case 'socials': {
@@ -82,7 +82,7 @@ switch (cmd) {
   }
   case 'leads': {
     const rows = db.listLeads(opts.status);
-    for (const l of rows) console.log(`#${l.id}  [${l.status}]  ${l.niche.padEnd(10)}  ${l.name} — ${l.city || ''}`);
+    for (const l of rows) console.log(`#${l.id}  [${l.status}]  ${l.niche.padEnd(10)}  ${l.name}${l.socials ? ' ★socials' : ''} — ${l.city || ''}`);
     console.log(`\n${rows.length} lead(s). By status:`, db.countByStatus().map((c) => `${c.status}:${c.n}`).join('  '));
     break;
   }

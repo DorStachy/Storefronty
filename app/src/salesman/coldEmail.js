@@ -53,7 +53,8 @@ ${bracket}
 Everything on it is your real info: your hours, your ${v.servicesWord}, and the reviews people have left you on Google. I do these for local businesses because most don't have a proper site, and a good one makes a real difference to how many people ${v.action}.
 
 If you'd want it, just reply and tell me what to change. The usual things people ask for:
-- send me a few photos of your place and I'll add them in
+- send me as many photos as you'd like and I'll add them in — or if it's easier, I can set up a photoshoot for you
+- if you've got products or a menu, I can put together a proper menu or catalog page
 - change the colors, fonts, or layout
 - fix any of the wording, prices, or hours
 
@@ -84,7 +85,8 @@ ${imgs}
 <p>Everything on it is your real info: your hours, your ${e.services}, and the reviews people have left you on Google. I do these for local businesses because most don't have a proper site, and a good one makes a real difference to how many people ${e.action}.</p>
 <p>If you'd want it, just reply and tell me what to change. The usual things people ask for:</p>
 <ul style="margin:0 0 14px;padding-left:20px">
-<li>send me a few photos of your place and I'll add them in</li>
+<li>send me as many photos as you'd like and I'll add them in — or if it's easier, I can set up a photoshoot for you</li>
+<li>if you've got products or a menu, I can put together a proper menu or catalog page</li>
 <li>change the colors, fonts, or layout</li>
 <li>fix any of the wording, prices, or hours</li>
 </ul>

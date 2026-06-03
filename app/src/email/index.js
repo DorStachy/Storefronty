@@ -6,6 +6,7 @@
 import { safeFetch } from '../util/net.js';
 import { host, digits, last10, distinctiveTokens, registrable, nameCoverage, normalizeName } from '../util/text.js';
 import { isAggregator } from '../discovery/index.js';
+import dns from 'node:dns/promises';
 
 // Free webmail providers — a generic address here (hello@gmail.com) can still be a shop's contact;
 // a generic address on a random business domain usually is NOT theirs.
@@ -88,6 +89,24 @@ export function scoreEmail(identity, email, context = '') {
 
 const rank = (c) => (c.confidence === 'high' ? 2 : c.confidence === 'medium' ? 1 : 0);
 
+// Best-effort deliverability: does the email's domain actually accept mail (has MX records)? So we
+// know we can CONTACT the owner, not just that the address looks plausible. `resolveMx` is injected
+// for offline tests; prod defaults to node:dns. Returns true (has MX), false (domain can't receive —
+// doesn't exist / no MX / malformed), or null (a transient DNS error → unknown, so we don't penalize
+// it). NB: this confirms the domain is REACHABLE, not that the specific mailbox exists (that needs an
+// SMTP probe we deliberately don't do).
+export async function verifyEmailDeliverable(email, { resolveMx = dns.resolveMx } = {}) {
+  const domain = String(email || '').split('@')[1] || '';
+  if (!domain || !domain.includes('.')) return false;
+  try {
+    const mx = await resolveMx(domain);
+    return Array.isArray(mx) && mx.length > 0;
+  } catch (e) {
+    if (e && (e.code === 'ENOTFOUND' || e.code === 'ENODATA')) return false; // domain can't receive mail
+    return null;                                                             // transient DNS error → unknown
+  }
+}
+
 // Search a couple of queries, scan snippets + a few fetched result pages for emails, verify, and
 // return the best { email, source, confidence, reasons } or { email: null }.
 export async function discoverEmail(identity, { searchFn = null, fetchPage = safeFetch, cfg = {} } = {}) {
@@ -120,5 +139,7 @@ export async function discoverEmail(identity, { searchFn = null, fetchPage = saf
     .sort((a, b) => rank(b) - rank(a) || b.score - a.score);
   if (!scored.length) return { email: null };
   const best = scored[0];
-  return { email: best.email, source: best.source, confidence: best.confidence, reasons: best.reasons };
+  // Confirm the chosen address's domain can actually receive mail (so we know we can contact them).
+  const deliverable = await verifyEmailDeliverable(best.email, { resolveMx: cfg.resolveMx });
+  return { email: best.email, source: best.source, confidence: best.confidence, reasons: best.reasons, deliverable };
 }

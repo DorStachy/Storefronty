@@ -31,3 +31,18 @@ test('escapes an untrusted shop name (no XSS)', async () => {
   assert.ok(!html.includes('<script>alert(1)'));
   assert.ok(html.includes('&lt;script&gt;'));
 });
+
+test('real photos: hero uses the first image + the gallery renders real <img> tiles (no placeholders)', async () => {
+  const { html } = await renderContract(contract, 'editorial', { images: ['img/photo-0.jpg', 'img/photo-1.jpg', 'img/photo-2.jpg', 'img/photo-3.jpg'] });
+  assert.ok(html.includes('class="hero-photo"'), 'hero uses the shop\'s first photo');
+  assert.ok(html.includes('src="img/photo-0.jpg"'));
+  assert.ok((html.match(/<div class="tile"><img /g) || []).length === 3, 'three real gallery tiles');
+  assert.ok(!html.includes('data-query'), 'no placeholder tiles when real photos exist');
+  assert.ok(!html.includes('{{'));
+});
+
+test('no images → decorative fallback (no hero photo, placeholder gallery tiles)', async () => {
+  const { html } = await renderContract(contract, 'editorial', { images: [] });
+  assert.ok(!html.includes('class="hero-photo"'));
+  assert.ok(html.includes('data-query'), 'placeholder tiles when there are no photos');
+});

@@ -42,3 +42,22 @@ test('research(): passes the full identity object to discovery — not just the 
     assert.ok(k in seen[0], `identity passed to discovery is missing "${k}"`);
   }
 });
+
+test('research(): a NO_WEBSITE lead WITH socials is kept and flagged (hasSocials + socials)', async () => {
+  const kept = await research(
+    { niche: 'cafe', city: 'Austin, TX', engine: 'mock', searchFn: async () => [] },
+    { discover: async () => ({ status: 'NO_WEBSITE', socials: ['https://instagram.com/cielito'] }) });
+  assert.ok(kept.length >= 1);
+  assert.equal(kept[0].website_status, 'none');
+  assert.equal(kept[0].hasSocials, true);
+  assert.deepEqual(kept[0].socials, ['https://instagram.com/cielito']);  // a socials-only shop is our best lead — kept + flagged
+});
+
+test('research(): a NO_WEBSITE lead with no socials → hasSocials false, socials null', async () => {
+  const kept = await research(
+    { niche: 'cafe', city: 'Austin, TX', engine: 'mock', searchFn: async () => [] },
+    { discover: async () => ({ status: 'NO_WEBSITE', socials: [] }) });
+  assert.ok(kept.length >= 1);
+  assert.equal(kept[0].hasSocials, false);
+  assert.equal(kept[0].socials, null);
+});

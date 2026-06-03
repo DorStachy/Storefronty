@@ -62,6 +62,14 @@ test('composeColdEmail per-niche variant: services/menu wording + action phrase'
   assert.ok(cafe.includes('how many people walk in.')); // 'walk in' (food), ends the sentence
 });
 
+test('composeColdEmail offers photos / a photoshoot / a menu or catalog (founder ask), still no link', () => {
+  const { text, html } = composeColdEmail({ name: 'Fade Theory', niche: 'barbershop' }, { shots, config: cfg });
+  assert.ok(/as many photos as you'd like/i.test(text), 'invites all their photos');
+  assert.ok(/photoshoot/i.test(text) && /photoshoot/i.test(html), 'offers a photoshoot');
+  assert.ok(/menu or catalog/i.test(text) && /menu or catalog/i.test(html), 'offers a menu or catalog');
+  assert.ok(!/https?:\/\//.test(text), 'the cold email still carries no live link');
+});
+
 test('sendColdEmail (dry-run) records an outbound message', async () => {
   const db = openDatabase(':memory:');
   const { id } = db.insertLead({ name: 'Fade Theory', niche: 'barbershop' });

@@ -16,7 +16,7 @@ const FIELD_MASK = [
   'places.id', 'places.displayName', 'places.formattedAddress', 'places.nationalPhoneNumber',
   'places.websiteUri', 'places.types', 'places.primaryTypeDisplayName', 'places.rating',
   'places.userRatingCount', 'places.priceLevel', 'places.regularOpeningHours',
-  'places.editorialSummary', 'places.googleMapsUri', 'places.location',
+  'places.editorialSummary', 'places.googleMapsUri', 'places.location', 'places.photos',
 ].join(',');
 
 // Map one raw Places result into our lead shape. Exported for unit-testing the websiteUri
@@ -50,6 +50,9 @@ export function mapPlace(p, { niche, city }) {
       mapsUri: p.googleMapsUri || null,
       lat: p.location?.latitude ?? null,
       lng: p.location?.longitude ?? null,
+      // The shop's OWN Google photos (resource names) — downloaded at build time for the hero +
+      // gallery so the demo site shows their real place, not placeholders. See src/photos/.
+      photos: (Array.isArray(p.photos) ? p.photos : []).map((ph) => ph.name).filter(Boolean).slice(0, 10),
     },
   };
 }

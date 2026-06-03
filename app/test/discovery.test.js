@@ -54,10 +54,43 @@ test('No candidates at all → NO_WEBSITE', async () => {
   assert.equal(r.status, 'NO_WEBSITE');
 });
 
-test('Aggregator-only result → UNCERTAIN (online presence, not their own site)', async () => {
+test('Socials-only result → NO_WEBSITE (no own site) and captures the social profile', async () => {
+  // A shop active on Facebook/Instagram but with NO real website is exactly our BEST lead — they
+  // clearly care about their online presence and have nowhere to send customers. We must KEEP it
+  // (not drop it as uncertain) and flag the social profile we found.
   const searchFn = async () => [{ url: 'https://facebook.com/cielitolindo', title: 'Cielito Lindo', position: 1 }];
   const r = await discoverWebsite(biz, { searchFn, fetchPage });
-  assert.equal(r.status, 'UNCERTAIN');
+  assert.equal(r.status, 'NO_WEBSITE');
+  assert.ok(Array.isArray(r.socials) && r.socials.some((u) => /facebook\.com\/cielitolindo/.test(u)),
+    'the name-matched social profile is captured');
+});
+
+test('Google "website" that is really their Instagram → NO_WEBSITE + socials (not counted as a site)', async () => {
+  // The exact case: Google shows a clickable "website" link that opens their Instagram, not a real
+  // site. mapPlace already sets hasWebsite=false; discovery must confirm NO_WEBSITE and flag the IG.
+  const r = await discoverWebsite({ ...biz, websiteUri: 'https://instagram.com/cielitolindocafe' },
+    { searchFn: async () => [], fetchPage });
+  assert.equal(r.status, 'NO_WEBSITE');
+  assert.ok(r.socials.some((u) => /instagram\.com\/cielitolindocafe/.test(u)));
+});
+
+test('a real site PLUS socials → HAS_WEBSITE, and the socials are still reported', async () => {
+  const searchFn = async () => [
+    { url: LOCAL, title: 'Cielito Lindo Cafe Austin', position: 1 },
+    { url: 'https://instagram.com/cielitolindocafe', title: 'Cielito Lindo Cafe', position: 2 },
+  ];
+  const r = await discoverWebsite(biz, { searchFn, fetchPage });
+  assert.equal(r.status, 'HAS_WEBSITE');
+  assert.ok(r.socials.some((u) => /instagram\.com\/cielitolindocafe/.test(u)));
+});
+
+test('a social handle that does NOT carry the shop name is not mis-attributed (still NO_WEBSITE)', async () => {
+  // facebook.com/totallyunrelated has no name match → not flagged as theirs, but it is still
+  // aggregator presence with no own site found → NO_WEBSITE (we keep the lead, with empty socials).
+  const searchFn = async () => [{ url: 'https://facebook.com/totallyunrelatedpage', title: 'Some Page', position: 1 }];
+  const r = await discoverWebsite(biz, { searchFn, fetchPage });
+  assert.equal(r.status, 'NO_WEBSITE');
+  assert.deepEqual(r.socials, []);
 });
 
 test('A bot-blocked (403) candidate → UNCERTAIN, never auto-dropped', async () => {

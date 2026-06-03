@@ -55,7 +55,10 @@ export async function research(
       r = await discover(buildIdentity(l, city), { searchFn });
     } catch { r = { status: 'UNCERTAIN' }; }
     if (r.status === 'NO_WEBSITE') {
-      kept.push({ ...l, website_status: 'none' });
+      // A NO_WEBSITE shop that nonetheless has socials is the BEST kind of lead — they care about
+      // their online presence but have nowhere to send customers. Flag it so it can be prioritized.
+      const socials = Array.isArray(r.socials) ? r.socials : [];
+      kept.push({ ...l, website_status: 'none', socials: socials.length ? socials : (l.socials || null), hasSocials: socials.length > 0 });
     } else {
       console.log(`    ✗ ${r.status}: ${l.name}${r.website ? ` → ${r.website}` : ''}`);
     }

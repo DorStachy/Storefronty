@@ -24,14 +24,16 @@ export async function sweep(db, { niches, cities, perCity = 20, want = 3, maxSca
         try { v = await discover(id); } catch { v = { status: 'UNCERTAIN' }; }
         if (v.status !== 'NO_WEBSITE') { onLog(`  · ${v.status}        ${c.name}`); continue; }
         noWebsite++;
+        const socials = Array.isArray(v.socials) ? v.socials : [];   // socials-but-no-website = our best lead
         let em;
         try { em = await discoverEmail(id); } catch { em = { email: null }; }
-        onLog(`  ✓ NO_WEBSITE      ${c.name}  ${em.email ? `→ ${em.email} (${em.confidence})` : '→ no email'}`);
+        const emailNote = em.email ? `→ ${em.email} (${em.confidence}${em.deliverable === false ? ', undeliverable' : ''})` : '→ no email';
+        onLog(`  ✓ ${socials.length ? 'NO_WEBSITE+socials' : 'NO_WEBSITE'}  ${c.name}  ${emailNote}`);
         if (!em.email) continue;
         hasEmail++;
-        const { id: leadId } = db.insertLead({ ...c, email: em.email, website_status: 'none' });
-        db.recordEvent(leadId, 'email_found', { email: em.email, confidence: em.confidence, source: em.source });
-        sendable.push({ leadId, name: c.name, city: c.city, email: em.email, confidence: em.confidence, reasons: v.reasons || [] });
+        const { id: leadId } = db.insertLead({ ...c, email: em.email, website_status: 'none', socials: socials.length ? socials : null });
+        db.recordEvent(leadId, 'email_found', { email: em.email, confidence: em.confidence, source: em.source, deliverable: em.deliverable ?? null });
+        sendable.push({ leadId, name: c.name, city: c.city, email: em.email, confidence: em.confidence, deliverable: em.deliverable ?? null, hasSocials: socials.length > 0, socials, reasons: v.reasons || [] });
       }
     }
   }

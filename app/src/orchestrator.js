@@ -2,10 +2,11 @@
 // per-status handlers. The cold-pitch funnel (corrected with the founder): build a themed demo from
 // the shop's REAL Google data → capture 3 section screenshots → send a personal email with those
 // screenshots and NO live link. The live 48h link only follows after the owner replies (Phase 2).
-import { readFileSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+import { readFileSync, readdirSync } from 'node:fs';
+import { dirname, resolve, join, basename } from 'node:path';
 import { research } from './researcher/index.js';
-import { buildSiteV2, writeSite } from './builder/build2.js';
+import { buildSiteV2, writeSite, slugFor, PUBLIC_DIR } from './builder/build2.js';
+import { downloadPhotos } from './photos/index.js';
 import { fillLead } from './fill/llm.js';
 import { fillDeterministic } from './fill/deterministic.js';
 import { applyOpusEdit } from './fill/opus.js';
@@ -69,14 +70,31 @@ export async function handleReply(db, lead, text) {
   return { intent, change };
 }
 
+// The shop's OWN Google photos as relative URLs ('img/photo-0.jpg') for the hero + gallery. Reuses
+// any already-downloaded photos (so a rebuild never re-bills the Places Photo API); otherwise pulls
+// them from the lead's Places photo refs. Returns [] (→ the theme's decorative fallback) on no
+// key / no photos / any error — a build must never break on imagery.
+async function leadImages(lead, config) {
+  const dir = join(PUBLIC_DIR, slugFor(lead), 'img');
+  try {
+    const existing = readdirSync(dir).filter((f) => /^photo-\d+\.jpg$/.test(f)).sort();
+    if (existing.length) return existing.map((f) => `img/${f}`);
+  } catch { /* dir not created yet */ }
+  let names = [];
+  try { const d = typeof lead.details === 'string' ? JSON.parse(lead.details) : (lead.details || {}); names = Array.isArray(d.photos) ? d.photos : []; } catch { /* none */ }
+  const saved = await downloadPhotos(names, dir, { apiKey: config.researcher?.googleKey });
+  return saved.map((f) => `img/${basename(f)}`);
+}
+
 // Per-status handlers, run in order each tick.
 const HANDLERS = {
   // Build the tailored demo from real Google data. Cheap-LLM fill when GEMINI_API_KEY is set,
   // deterministic fallback otherwise (fillLead is key-gated). Niche auto-selects the theme.
   discovered: async (db, lead) => {
-    const site = await buildSiteV2(lead, { fill: (l) => fillLead(l) });
+    const images = await leadImages(lead, config);
+    const site = await buildSiteV2(lead, { fill: (l) => fillLead(l), images });
     db.addSite(lead.id, { slug: site.slug, engine: site.engine, htmlPath: site.htmlPath });
-    db.setStatus(lead.id, 'built', { slug: site.slug, theme: site.renderedTheme });
+    db.setStatus(lead.id, 'built', { slug: site.slug, theme: site.renderedTheme, photos: images.length });
   },
   // Capture the 3 section screenshots for the cold pitch (hero, services, reviews|gallery). No live
   // deploy here — the cold email carries screenshots, not a link.
@@ -106,7 +124,7 @@ const HANDLERS = {
   replied: async (db, lead) => {
     const change = latestChange(db, lead.id);
     const contract = await applyOpusEdit(lead, { baseContract: fillDeterministic(lead), change });
-    const built = await writeSite(lead, contract);
+    const built = await writeSite(lead, contract, { images: await leadImages(lead, config) });
     const qa = await qaCheck({ htmlPath: built.htmlPath });
     if (!qa.ok) { db.setStatus(lead.id, 'needs_human', { reason: 'qa_failed', issues: qa.issues.map((i) => i.type) }); return; }
     db.addSite(lead.id, { slug: built.slug, engine: built.engine, htmlPath: built.htmlPath });

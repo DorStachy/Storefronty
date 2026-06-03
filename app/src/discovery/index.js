@@ -5,7 +5,8 @@
 // a café with the same name in another country can never be accepted, because its page won't carry
 // THIS shop's phone/address — while the `name + phone` query surfaces the correct local site.
 import { safeFetch } from '../util/net.js';
-import { last10, digits, host, registrable, distinctiveTokens, areaCode } from '../util/text.js';
+import { last10, digits, host, registrable, distinctiveTokens, areaCode, normalizeName } from '../util/text.js';
+import { parseSocial } from '../socials/index.js';
 
 const DENY = ['facebook.com', 'instagram.com', 'linktr.ee', 'linktree.com', 'yelp.com', 'tripadvisor.com',
   'opentable.com', 'resy.com', 'fresha.com', 'booksy.com', 'vagaro.com', 'sites.google.com', 'business.site',
@@ -111,6 +112,19 @@ export function scoreCandidate(biz, cand, page) {
 // own site" test — used to decide whether a candidate is worth an (expensive) JS render.
 const domainHasName = (name, h) => distinctiveTokens(name).some((t) => registrable(h).includes(t));
 
+// A social-profile URL that bears the shop's distinctive name — the "has socials" signal we surface
+// when a shop has an online presence but NO website (our best kind of lead). Canonicalized via
+// parseSocial (posts/listings/non-profiles → null) and name-gated so a same-name page elsewhere isn't
+// mis-attributed. This is a HINT, not the rigorous location-verified check (that's socials/discoverSocials).
+function namedSocial(name, url) {
+  const s = parseSocial(url);
+  if (!s) return null;
+  const toks = distinctiveTokens(name);
+  if (!toks.length) return null;
+  const hn = normalizeName(s.handle || '');
+  return toks.every((t) => hn.includes(t)) ? s.url : null;
+}
+
 // Discover and classify. searchFn(query)->[{url,title,snippet,position}]; fetchPage defaults to safeFetch.
 // Optional `render(url,{timeoutMs})->{ok,html}` is a pluggable JS-renderer (headless browser / render
 // API). It is used ONLY as a budgeted fallback: when a candidate is plausibly the shop's own domain
@@ -154,8 +168,9 @@ export async function discoverWebsite(biz, { searchFn = null, fetchPage = safeFe
   if (kgUs && !biz.phone && knowledge.phone) biz = { ...biz, phone: knowledge.phone };
 
   let best = null, uncertain = searchFailed, presence = false, ownDomainUncertain = false;
+  const socialSet = new Set();   // name-matched social profiles seen (the "has socials" hint)
   for (const cand of candidates) {
-    if (isAggregator(cand.host)) { presence = true; continue; }
+    if (isAggregator(cand.host)) { presence = true; const su = namedSocial(biz.name, cand.url); if (su) socialSet.add(su); continue; }
     const ownish = domainHasName(biz.name, cand.host);   // plausibly THEIR domain (not a directory)
     let page = null;
     const fr = await fetchPage(cand.url, { timeoutMs: cfg.timeoutMs ?? 8000 });
@@ -178,7 +193,7 @@ export async function discoverWebsite(biz, { searchFn = null, fetchPage = safeFe
       } catch (err) { onRenderError(cand.url, err); }
     }
 
-    if (sc.presence) { presence = true; continue; }
+    if (sc.presence) { presence = true; const su = namedSocial(biz.name, cand.url); if (su) socialSet.add(su); continue; }
     if (sc.strong && sc.score >= acceptScore) { if (!best || sc.score > best.score) best = { url: cand.url, score: sc.score, reasons: sc.reasons }; }
     else if (sc.score >= uncertainScore) { uncertain = true; if (ownish) ownDomainUncertain = true; }
   }
@@ -191,10 +206,15 @@ export async function discoverWebsite(biz, { searchFn = null, fetchPage = safeFe
   //    couldn't read (a bot-blocked SPA) still keeps us UNCERTAIN, since Google can omit a real site.
   const kgSite = kgUs && knowledge.website && !isAggregator(host(knowledge.website)) ? knowledge.website : null;
   const kgNoSite = !!(kgUs && !knowledge.website);
+  const socials = [...socialSet];
 
-  if (best) return { status: 'HAS_WEBSITE', website: best.url, score: best.score, reasons: best.reasons };
-  if (kgSite) return { status: 'HAS_WEBSITE', website: kgSite, reasons: ['knowledge_panel', 'place_id_match'] };
-  if (kgNoSite && !ownDomainUncertain && !searchFailed) return { status: 'NO_WEBSITE', website: null, reasons: ['knowledge_panel_no_site', 'place_id_match'] };
-  if (uncertain || presence) return { status: 'UNCERTAIN', website: null };
-  return { status: 'NO_WEBSITE', website: null };
+  if (best) return { status: 'HAS_WEBSITE', website: best.url, score: best.score, reasons: best.reasons, socials };
+  if (kgSite) return { status: 'HAS_WEBSITE', website: kgSite, reasons: ['knowledge_panel', 'place_id_match'], socials };
+  if (kgNoSite && !ownDomainUncertain && !searchFailed) return { status: 'NO_WEBSITE', website: null, reasons: ['knowledge_panel_no_site', 'place_id_match'], socials };
+  // A real-looking domain we couldn't read/confirm (or a failed search) → genuinely unsure; needs a human.
+  if (uncertain) return { status: 'UNCERTAIN', website: null, socials };
+  // No own site, nothing unreadable, the search worked. Only social/directory presence (or nothing at
+  // all) → confidently NO website of their own. A socials-only shop is our BEST lead, so we KEEP it
+  // (previously this fell into UNCERTAIN with `presence` and the researcher dropped it).
+  return { status: 'NO_WEBSITE', website: null, reasons: presence ? ['no_own_site', 'social_or_directory_presence'] : ['no_site_found'], socials };
 }
