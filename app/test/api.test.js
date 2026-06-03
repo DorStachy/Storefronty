@@ -2,12 +2,15 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHmac } from 'node:crypto';
 import { openDatabase } from '../src/db.js';
-import { handleApi, handleStripeWebhook } from '../src/api/index.js';
+import { handleApi, handleStripeWebhook, handlePaddleWebhook, handleGoogleStart, handleGoogleCallback } from '../src/api/index.js';
 import { signToken } from '../src/util/sign.js';
 
 const config = {
   signSecret: 'sec', portalBaseUrl: 'http://localhost:4173', publicBaseUrl: 'http://localhost:4173',
   stripe: { secretKey: '', webhookSecret: 'whsec_test' },
+  paddle: { env: 'sandbox', clientToken: '', webhookSecret: 'pdltest', prices: {} },
+  google: { clientId: '', clientSecret: '' },
+  payments: { provider: 'paddle' },
 };
 const J = (out) => JSON.parse(out.body);
 const cookiesFrom = (out) => {
@@ -137,5 +140,39 @@ test('top-up: the webhook grants credits, which allow a change after the quota i
 
   delete process.env.STRIPE_SECRET_KEY;
   assert.equal(J(await handleApi({ method: 'POST', path: '/api/billing/topup', body: { pack: 'pack5' }, cookies, db, config })).configured, false);
+  db.close();
+});
+
+test('paddle webhook: subscription.activated → active plan; transaction.completed → credits', async () => {
+  const db = openDatabase(':memory:');
+  const acctId = db.addAccount({ email: 'pad@b.com', passwordHash: 'x' });
+  const sign = (raw) => { const t = 1700000000; return `ts=${t};h1=${createHmac('sha256', config.paddle.webhookSecret).update(`${t}:${raw}`).digest('hex')}`; };
+
+  const sub = JSON.stringify({ event_type: 'subscription.activated', data: { status: 'active', customer_id: 'ctm_1', custom_data: { accountId: String(acctId), plan: 'pro' } } });
+  assert.equal((await handlePaddleWebhook({ rawBody: sub, signature: sign(sub), db, config })).status, 200);
+  assert.equal(db.getAccount(acctId).plan, 'pro');
+  assert.equal(db.getAccount(acctId).plan_status, 'active');
+
+  const tx = JSON.stringify({ event_type: 'transaction.completed', data: { customer_id: 'ctm_1', custom_data: { accountId: String(acctId), changes: '15' } } });
+  assert.equal((await handlePaddleWebhook({ rawBody: tx, signature: sign(tx), db, config })).status, 200);
+  assert.equal(db.getAccount(acctId).extra_changes, 15);
+
+  assert.equal((await handlePaddleWebhook({ rawBody: sub, signature: 'ts=1;h1=bad', db, config })).status, 400); // forged
+  db.close();
+});
+
+test('google: start redirects to consent when configured (else google_off); a forged callback state → err', async () => {
+  const off = await handleGoogleStart({}, { ...config, google: { clientId: '' } });
+  assert.equal(off.status, 302);
+  assert.match(off.headers.location, /google_off/);
+
+  const on = await handleGoogleStart({}, { ...config, google: { clientId: 'cid.apps.googleusercontent.com' } });
+  assert.equal(on.status, 302);
+  assert.match(on.headers.location, /accounts\.google\.com/);
+
+  const db = openDatabase(':memory:');
+  const bad = await handleGoogleCallback({ query: { code: 'x', state: 'forged' }, db, config });
+  assert.equal(bad.status, 302);
+  assert.match(bad.headers.location, /err=google/);
   db.close();
 });

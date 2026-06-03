@@ -8,6 +8,8 @@ import { signToken, verifyToken } from '../util/sign.js';
 import { createAccount, authenticate, quota, canRequestChange, monthKeyOf, PLANS, PLAN_LIST, TOPUPS, TOPUP_LIST } from '../portal/accounts.js';
 import { canTransition } from '../states.js';
 import { shotsFromDir } from '../screenshot/index.js';
+import { googleAuthUrl, googleLogin } from '../auth/google.js';
+import { verifyPaddleWebhook, parsePaddleEvent } from '../portal/paddle.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const UPLOADS = resolve(here, '..', '..', 'data', 'uploads'); // private (data/ is gitignored)
@@ -35,6 +37,7 @@ function saveImages(accountId, images) {
 
 const SESSION_COOKIE = 'sf_session';
 const json = (status, obj, headers = {}) => ({ status, headers: { 'content-type': 'application/json; charset=utf-8', ...headers }, body: JSON.stringify(obj) });
+const redirect302 = (to, headers = {}) => ({ status: 302, headers: { location: to, ...headers }, body: '' });
 const sessionCookie = (accountId, config) => `${SESSION_COOKIE}=${signToken({ accountId }, config.signSecret)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000`;
 const clearCookie = () => `${SESSION_COOKIE}=; Path=/; HttpOnly; Max-Age=0`;
 
@@ -62,6 +65,18 @@ function shotUrls(site, config) {
   try { return shotsFromDir(site.screenshot_path).map((s) => `${base}/${site.slug}/shots/${s.name}.png`); } catch { return []; }
 }
 
+// Payment config the SPA needs (provider + whether it's configured). Only PUBLIC values — the
+// Paddle client-side token + price IDs are safe in the browser; the API key/webhook secret are not exposed.
+function payConfig(config) {
+  const provider = (config.payments && config.payments.provider) || 'none';
+  if (provider === 'paddle') {
+    const p = config.paddle || {};
+    return { provider, ready: !!(p.clientToken && p.prices && p.prices.starter), env: p.env || 'sandbox', clientToken: p.clientToken || '', prices: p.prices || {} };
+  }
+  if (provider === 'stripe') return { provider, ready: !!(config.stripe && config.stripe.secretKey) };
+  return { provider: 'none', ready: false };
+}
+
 function mePayload(db, account, config) {
   const lead = account.lead_id ? db.getLead(account.lead_id) : null;
   const site = account.lead_id ? db.getSiteForLead(account.lead_id) : null;
@@ -74,6 +89,7 @@ function mePayload(db, account, config) {
     plan: plan ? { key: plan.key, label: plan.label, price: plan.price, quota: plan.quota === Infinity ? null : plan.quota, domainIncluded: !!plan.domainIncluded } : null,
     quota: { used: q.used, remaining: q.remaining === Infinity ? null : q.remaining, allowance: q.allowance === Infinity ? null : q.allowance, extra: q.extra, freeAvailable: q.freeAvailable },
     site: site ? { previewUrl: site.preview_url || null, screenshots: shotUrls(site, config), expiresAt: site.expires_at || null, status: site.preview_url ? 'live' : 'building' } : null,
+    pay: payConfig(config),
   };
 }
 
@@ -107,6 +123,9 @@ export async function handleApi({ method, path, body = {}, cookies = {}, db, con
   }
   if (path === '/api/topups' && method === 'GET') {
     return json(200, { topups: TOPUP_LIST.map((t) => ({ key: t.key, label: t.label, changes: t.changes, price: t.price })) });
+  }
+  if (path === '/api/auth/config' && method === 'GET') {
+    return json(200, { google: !!(config.google && config.google.clientId) });
   }
 
   // --- authed ---
@@ -202,4 +221,52 @@ export async function handleStripeWebhook({ rawBody, signature, db, config }) {
   } catch (e) {
     return { status: 500, body: String(e.message || e) };
   }
+}
+
+// Paddle webhook → activate a plan / grant top-up credits (signature-verified; no session).
+export async function handlePaddleWebhook({ rawBody, signature, db, config }) {
+  try {
+    const event = verifyPaddleWebhook(rawBody, signature, config.paddle?.webhookSecret || '');
+    if (!event) return { status: 400, body: 'bad signature' };
+    const norm = parsePaddleEvent(event);
+    if (norm && norm.accountId) {
+      const id = Number(norm.accountId);
+      if (norm.type === 'topup') db.addExtraChanges(id, norm.changes);
+      else if (norm.type === 'subscription') {
+        const active = norm.status === 'active' || norm.status === 'trialing';
+        db.setAccountPlan(id, { plan: norm.plan, planStatus: active ? 'active' : 'canceled', stripeCustomer: norm.customerId });
+      }
+    }
+    return { status: 200, body: 'ok' };
+  } catch (e) {
+    return { status: 500, body: String(e.message || e) };
+  }
+}
+
+// Google login (server-side Authorization Code). Start → redirect to Google's consent screen.
+export async function handleGoogleStart(query, config) {
+  if (!config.google || !config.google.clientId) return redirect302('/login?err=google_off');
+  const state = signToken({ n: Date.now(), claim: (query && query.claim) || '', kind: 'gstate' }, config.signSecret);
+  const redirectUri = `${(config.portalBaseUrl || '').replace(/\/$/, '')}/auth/google/callback`;
+  return redirect302(googleAuthUrl({ clientId: config.google.clientId, redirectUri, state }));
+}
+
+// Callback → exchange the code, find/create the account by email, set the session, land on the dashboard.
+export async function handleGoogleCallback({ query, db, config }) {
+  const q = query || {};
+  const payload = verifyToken(q.state || '', config.signSecret);
+  if (!payload || payload.kind !== 'gstate' || !q.code) return redirect302('/login?err=google');
+  const redirectUri = `${(config.portalBaseUrl || '').replace(/\/$/, '')}/auth/google/callback`;
+  let profile;
+  try {
+    profile = await googleLogin({ code: q.code, redirectUri, clientId: config.google.clientId, clientSecret: config.google.clientSecret });
+  } catch { return redirect302('/login?err=google'); }
+  if (!profile || !profile.email) return redirect302('/login?err=google');
+  let account = db.getAccountByEmail(profile.email);
+  if (!account) {
+    const claim = verifyToken(payload.claim || '', config.signSecret);
+    const leadId = claim && claim.kind === 'claim' ? claim.leadId : null;
+    account = db.getAccount(db.addAccount({ leadId, email: profile.email, passwordHash: null, authProvider: 'google' }));
+  }
+  return redirect302('/dashboard', { 'set-cookie': sessionCookie(account.id, config) });
 }

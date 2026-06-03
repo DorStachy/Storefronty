@@ -6,7 +6,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { openDatabase } from './db.js';
 import { config } from './config.js';
 import { handleApproval } from './approval/index.js';
-import { isApiRoute, handleApi, handleStripeWebhook } from './api/index.js';
+import { isApiRoute, handleApi, handleStripeWebhook, handlePaddleWebhook, handleGoogleStart, handleGoogleCallback } from './api/index.js';
 
 // Request IO helpers for the JSON API + SPA (cookies, JSON bodies).
 const readBody = (req) =>
@@ -68,6 +68,16 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
     if (urlPath === '/stripe/webhook' && req.method === 'POST') {
       const r = await handleStripeWebhook({ rawBody: await readBody(req), signature: req.headers['stripe-signature'] || '', db, config });
       res.writeHead(r.status, { 'Content-Type': 'text/plain' }); res.end(r.body); return;
+    }
+    // Paddle webhook (raw body for signature verification).
+    if (urlPath === '/paddle/webhook' && req.method === 'POST') {
+      const r = await handlePaddleWebhook({ rawBody: await readBody(req), signature: req.headers['paddle-signature'] || '', db, config });
+      res.writeHead(r.status, { 'Content-Type': 'text/plain' }); res.end(r.body); return;
+    }
+    // Google OAuth (server-side): start → consent screen; callback → exchange + session.
+    if (urlPath === '/auth/google' || urlPath === '/auth/google/callback') {
+      const out = urlPath === '/auth/google' ? await handleGoogleStart(query, config) : await handleGoogleCallback({ query, db, config });
+      res.writeHead(out.status, out.headers); res.end(out.body); return;
     }
 
     // JSON API.
