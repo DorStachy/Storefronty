@@ -18,6 +18,7 @@ async function req(method, path, body) {
 }
 
 export const api = {
+  authConfig: () => req('GET', '/api/auth/config'),
   claim: (token) => req('POST', '/api/auth/claim', { token }),
   signup: (b) => req('POST', '/api/auth/signup', b),
   login: (b) => req('POST', '/api/auth/login', b),

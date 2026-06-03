@@ -64,11 +64,7 @@ function topupCard(ctx, tp) {
   btn.addEventListener('click', async () => {
     btn.disabled = true; const lbl = `Buy — $${tp.price}`;
     btn.replaceChildren(h('span', { class: 'spinner' }));
-    try {
-      const r = await ctx.api.topup(tp.key);
-      if (r && r.url) { window.location.href = r.url; return; }
-      t((r && r.message) || 'Card payments switch on once Stripe is connected.');
-    } catch (e) { t(e.message || 'Could not start checkout — please try again.'); }
+    await startPay(ctx, { key: tp.key, kind: 'topup', changes: tp.changes });
     btn.disabled = false; btn.replaceChildren(document.createTextNode(lbl));
   });
   return h('div', { class: 'card pad topup' },
@@ -152,36 +148,42 @@ function planCard(ctx, p, flagshipKey) {
   return card;
 }
 
+// Open checkout for a plan or a top-up. Paddle (overlay) when configured, else Stripe redirect, else
+// a friendly "switch on soon" toast. customData is what our webhook reads to grant access.
+async function startPay(ctx, opts) {
+  const t = ctx.toast || toast;
+  const pay = ctx.me.pay || {};
+  if (pay.provider === 'paddle' && pay.ready) {
+    const priceId = (pay.prices || {})[opts.key];
+    if (!priceId) { t("That isn't set up yet — try again shortly."); return; }
+    const customData = opts.kind === 'topup'
+      ? { accountId: String(ctx.me.account.id), changes: String(opts.changes) }
+      : { accountId: String(ctx.me.account.id), plan: opts.key };
+    try {
+      const { paddleCheckout } = await import('../pay.js');
+      await paddleCheckout(pay, { priceId, email: ctx.me.account.email, customData });
+    } catch (e) { t(e.message || 'Could not open checkout.'); }
+    return;
+  }
+  try {
+    const r = opts.kind === 'topup' ? await ctx.api.topup(opts.key) : await ctx.api.checkout(opts.key);
+    if (r && r.url) { window.location.href = r.url; return; }
+    t((r && r.message) || 'Card payments switch on once checkout is connected.');
+  } catch (e) { t(e.message || 'Could not start checkout — please try again.'); }
+}
+
 // Card action button: disabled "Current plan", or a checkout CTA.
 function cta(ctx, p, isCurrent, isFlagship) {
-  const { api } = ctx;
-  const t = ctx.toast || toast;
-
-  if (isCurrent) {
-    return h('button', { class: 'btn block ghost', disabled: true }, 'Current plan');
-  }
-
+  if (isCurrent) return h('button', { class: 'btn block ghost', disabled: true }, 'Current plan');
   const cls = isFlagship ? 'btn block accent' : 'btn block ghost';
   const label = `Choose ${p.label}`;
   const btn = h('button', { class: cls, type: 'button' }, label);
-
   btn.addEventListener('click', async () => {
     btn.disabled = true;
     btn.replaceChildren(h('span', { class: 'spinner' }));
-    try {
-      const r = await api.checkout(p.key);
-      if (r && r.url) {
-        window.location.href = r.url;
-        return; // navigating away — leave the spinner up
-      }
-      // Stripe not wired up yet — let them know and re-enable.
-      t((r && r.message) || 'Card payments switch on once Stripe is connected.');
-    } catch (e) {
-      t(e.message || 'Could not start checkout — please try again.');
-    }
+    await startPay(ctx, { key: p.key, kind: 'plan' });
     btn.disabled = false;
     btn.replaceChildren(document.createTextNode(label));
   });
-
   return btn;
 }

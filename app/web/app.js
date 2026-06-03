@@ -83,4 +83,9 @@ function Shell(route, viewNode) {
 }
 
 window.addEventListener('popstate', render);
+// Paddle checkout completed (overlay) → refresh the account so the new plan/credits show.
+window.addEventListener('sf:paid', async () => {
+  toast('Payment received — updating your account…');
+  try { state.me = await api.me(); render(); } catch { /* the webhook is the source of truth */ }
+});
 render();

@@ -162,6 +162,10 @@ textarea.input { resize: vertical; min-height: 92px; line-height: 1.55; }
 .auth .sub { color: var(--ink-2); margin-bottom: 26px; }
 .auth .alt { margin-top: 20px; font-size: 14px; color: var(--ink-2); }
 .auth .field > label { font-weight: 600; }
+.or { display: flex; align-items: center; gap: 12px; margin: 18px 0; color: var(--ink-3); font-size: 13px; }
+.or::before, .or::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+.gbtn { gap: 10px; }
+.gbtn .gg { display: inline-flex; }
 
 /* ----------------------------------------------------------------- app shell */
 .app { display: grid; grid-template-columns: var(--sidebar-w) 1fr; min-height: 100dvh; }
