@@ -51,6 +51,9 @@ export const icon = (name) => {
     menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
     moon: '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>',
     sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+    image: '<rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.6"/><path d="m21 15-4.5-4.5L5 21"/>',
+    bolt: '<path d="M13 2 4 14h7l-1 8 9-12h-7l1-8Z"/>',
+    check: '<path d="M20 6 9 17l-5-5"/>',
   };
   const span = h('span', { class: 'ico' });
   span.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:100%;height:100%">${paths[name] || ''}</svg>`;

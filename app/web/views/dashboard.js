@@ -1,59 +1,91 @@
-import { h, icon, fmtDate } from '../ui.js';
+import { h, icon, orb, fmtDate } from '../ui.js';
 
-export function DashboardView(ctx) {
-  const { me, navigate } = ctx;
-  const site = me.site;
+export async function DashboardView(ctx) {
   const wrap = h('div', {});
-
-  wrap.append(h('div', { class: 'view-head' },
-    h('h2', {}, me.shop || 'Your site'),
-    h('p', { class: 'muted' }, 'Preview your site, request changes, and manage your plan.')));
-
-  const planLabel = me.plan ? me.plan.label : 'Free change';
-  const changes = !me.plan
-    ? (me.quota.freeAvailable ? '1 free' : '0 left')
-    : (me.quota.allowance == null ? 'Unlimited' : `${me.quota.remaining == null ? 0 : me.quota.remaining} left`);
-  const status = site && site.previewUrl ? 'Live' : 'Building';
-  wrap.append(h('div', { class: 'stat-row' },
-    stat('Plan', planLabel, me.account.planStatus === 'active' ? 'active' : (me.plan ? '' : 'pick one anytime')),
-    stat('Changes this month', changes, me.quota.freeAvailable && me.plan ? '+1 free available' : (me.quota.freeAvailable ? 'your first is free' : '')),
-    stat('Site', status, site && site.expiresAt ? `until ${fmtDate(site.expiresAt)}` : (site ? '' : 'being built'))));
-
-  wrap.append(h('div', { class: 'grid cols-2' }, previewCard(site), sideCard(ctx)));
+  wrap.append(hero(ctx));
+  wrap.append(h('div', { class: 'bento' },
+    previewCard(ctx.me.site),
+    h('div', { class: 'bento-side' }, usageCard(ctx), planCard(ctx))));
+  wrap.append(await recentCard(ctx));
   return wrap;
 }
 
-const stat = (k, v, sub) => h('div', { class: 'stat card' },
-  h('div', { class: 'k' }, k), h('div', { class: 'v' }, v),
-  sub ? h('div', { class: 'muted', style: { fontSize: '12px', marginTop: '2px' } }, sub) : null);
+const greeting = () => { const hr = new Date().getHours(); return hr < 12 ? 'Good morning' : hr < 18 ? 'Good afternoon' : 'Good evening'; };
+
+function hero(ctx) {
+  const { me, navigate } = ctx;
+  const live = me.site && me.site.previewUrl;
+  return h('div', { class: 'hero-card' },
+    h('div', { class: 'hero-orbwrap' }, orb('lg')),
+    h('div', { class: 'hero-text' },
+      h('p', { class: 'hero-eyebrow' }, greeting()),
+      h('h2', { class: 'hero-name' }, me.shop || 'Your site'),
+      h('div', { class: 'hero-meta' }, live
+        ? h('span', { class: 'badge ok dot' }, me.site.expiresAt ? `Live · until ${fmtDate(me.site.expiresAt)}` : 'Live')
+        : h('span', { class: 'badge dot' }, 'Building'))),
+    h('div', { class: 'hero-actions' },
+      h('button', { class: 'btn', onClick: () => navigate('/requests') }, icon('chat'), 'Request a change'),
+      live ? h('a', { class: 'btn ghost', href: me.site.previewUrl, target: '_blank', rel: 'noopener' }, 'View live site', icon('ext')) : null));
+}
 
 function previewCard(site) {
   const bar = h('div', { class: 'preview-bar' },
     h('span', { class: 'dot3' }, h('i'), h('i'), h('i')),
     h('span', { class: 'addr' }, site && site.previewUrl ? site.previewUrl.replace(/^https?:\/\//, '') : 'your site'));
   const frame = h('div', { class: 'preview-frame' });
-  if (site && site.previewUrl) frame.append(h('iframe', { src: site.previewUrl, title: 'Your site preview', loading: 'lazy' }));
-  else if (site && site.screenshots && site.screenshots[0]) frame.append(h('img', { src: site.screenshots[0], alt: 'Your site', style: { width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top' } }));
+  if (site && site.previewUrl) frame.append(h('iframe', { src: site.previewUrl, title: 'Your site', loading: 'lazy' }));
+  else if (site && site.screenshots && site.screenshots[0]) frame.append(h('img', { src: site.screenshots[0], alt: '', style: { width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top' } }));
   else frame.append(h('div', { class: 'center-pad' }, 'Your site is being built…'));
-  return h('div', { class: 'card' }, bar, frame);
+  return h('div', { class: 'card preview-card' }, bar, frame);
 }
 
-function sideCard(ctx) {
+function usageCard(ctx) {
   const { me, navigate } = ctx;
-  const card = h('div', { class: 'card pad', style: { display: 'flex', flexDirection: 'column' } });
-  card.append(
-    h('div', { class: 'eyebrow', style: { marginBottom: '10px' } }, 'Make it yours'),
-    h('h3', { style: { fontSize: '21px', marginBottom: '8px' } }, 'Want to change something?'),
-    h('p', { class: 'muted', style: { marginBottom: '18px' } }, me.quota.freeAvailable
-      ? "Your first change is on us — just tell the assistant what you'd like and it rebuilds your site."
-      : 'Tell the assistant what to tweak in plain words and it rebuilds your site.'),
-    h('button', { class: 'btn block', onClick: () => navigate('/requests') }, icon('chat'), 'Request a change'));
-  if (me.site && me.site.previewUrl) {
-    card.append(h('a', { class: 'btn ghost block', style: { marginTop: '10px' }, href: me.site.previewUrl, target: '_blank', rel: 'noopener' }, 'Open live site', icon('ext')));
-  }
-  if (!me.plan) {
-    card.append(h('p', { class: 'muted', style: { fontSize: '13px', marginTop: 'auto', paddingTop: '16px', textAlign: 'center' } },
-      h('a', { href: '/billing', onClick: (e) => { e.preventDefault(); navigate('/billing'); } }, 'See plans →')));
-  }
-  return card;
+  const q = me.quota;
+  const total = q.allowance; // null = unlimited
+  const used = q.used || 0;
+  const left = total == null ? null : Math.max(0, total - used) + (q.freeAvailable ? 1 : 0);
+  const deg = (total ? Math.min(100, (used / total) * 100) : (q.freeAvailable ? 8 : 100)) * 3.6;
+  const ring = h('div', { class: 'ring', style: { background: `conic-gradient(var(--primary) ${deg}deg, var(--surface-3) 0deg)` } },
+    h('div', { class: 'ring-hole' },
+      h('div', { class: 'ring-num' }, total == null ? '∞' : String(left == null ? 0 : left)),
+      h('div', { class: 'ring-lbl' }, total == null ? 'changes' : 'left')));
+  return h('div', { class: 'card pad' },
+    h('div', { class: 'eyebrow', style: { marginBottom: '14px' } }, 'Changes this month'),
+    h('div', { class: 'usage-row' }, ring,
+      h('div', {},
+        h('div', { style: { fontWeight: 600 } }, q.freeAvailable ? 'Your first change is free' : (total == null ? 'Unlimited changes' : `${used} of ${total} used`)),
+        h('div', { style: { fontSize: '13.5px', marginTop: '3px' } },
+          h('a', { href: '/billing', onClick: (e) => { e.preventDefault(); navigate('/billing'); } }, 'Buy more changes'),
+          q.extra ? h('span', { class: 'badge', style: { marginLeft: '8px' } }, `+${q.extra} credits`) : null))));
+}
+
+function planCard(ctx) {
+  const { me, navigate } = ctx;
+  const active = me.account.planStatus === 'active';
+  return h('div', { class: 'card pad' },
+    h('div', { class: 'eyebrow', style: { marginBottom: '12px' } }, 'Plan'),
+    h('div', { style: { display: 'flex', alignItems: 'baseline', gap: '10px', flexWrap: 'wrap' } },
+      h('div', { style: { fontSize: '22px', fontWeight: 800, letterSpacing: '-0.03em' } }, me.plan ? me.plan.label : 'No plan yet'),
+      me.plan ? h('span', { class: 'muted', style: { fontSize: '14px' } }, `$${me.plan.price}/mo`) : null,
+      active ? h('span', { class: 'badge ok dot', style: { marginLeft: 'auto' } }, 'Active') : null),
+    h('button', { class: 'btn ghost block', style: { marginTop: '16px' }, onClick: () => navigate('/billing') }, active ? 'Manage plan' : 'Pick a plan'));
+}
+
+async function recentCard(ctx) {
+  let reqs = [];
+  try { reqs = (await ctx.api.requests()).requests || []; } catch { /* none */ }
+  reqs = reqs.slice().reverse().slice(0, 6);
+  const body = reqs.length
+    ? h('ul', { class: 'activity' }, ...reqs.map((r) => h('li', {},
+        h('span', { class: `dot ${r.status === 'done' ? 'done' : 'queued'}` }),
+        h('div', { class: 'act-body' },
+          h('div', { class: 'act-text' }, r.body || (r.images ? `${r.images} photo${r.images === 1 ? '' : 's'} sent` : 'Change request')),
+          h('div', { class: 'act-meta muted' }, `${r.images ? `${r.images} photo${r.images === 1 ? '' : 's'} · ` : ''}${r.status === 'done' ? 'Done' : 'In progress'} · ${fmtDate(r.createdAt)}`)))))
+    : h('div', { class: 'center-pad', style: { padding: '28px 20px' } }, 'No requests yet — tell the assistant what to change.');
+  return h('div', { class: 'card pad', style: { marginTop: '18px' } },
+    h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' } },
+      h('div', { class: 'eyebrow' }, 'Recent requests'),
+      h('a', { href: '/requests', onClick: (e) => { e.preventDefault(); ctx.navigate('/requests'); } }, 'Open console')),
+    body);
 }

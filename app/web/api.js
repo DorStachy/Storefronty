@@ -24,7 +24,9 @@ export const api = {
   logout: () => req('POST', '/api/auth/logout'),
   me: () => req('GET', '/api/me'),
   requests: () => req('GET', '/api/requests'),
-  sendRequest: (body) => req('POST', '/api/requests', { body }),
+  sendRequest: (payload) => req('POST', '/api/requests', typeof payload === 'string' ? { body: payload } : payload),
   plans: () => req('GET', '/api/plans'),
+  topups: () => req('GET', '/api/topups'),
   checkout: (plan) => req('POST', '/api/billing/checkout', { plan }),
+  topup: (pack) => req('POST', '/api/billing/topup', { pack }),
 };

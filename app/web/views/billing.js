@@ -10,10 +10,9 @@ export async function BillingView(ctx) {
   const t = ctx.toast || toast;
 
   // Returning from a successful Stripe checkout.
-  if (new URLSearchParams(location.search).get('paid')) {
-    t('Payment received — your plan is active.');
-    ctx.refresh();
-  }
+  const qs = new URLSearchParams(location.search);
+  if (qs.get('paid')) { t('Payment received — your plan is active.'); ctx.refresh(); }
+  if (qs.get('topped')) { t("Changes added — they're ready to use."); ctx.refresh(); }
 
   const view = h('div', {});
 
@@ -40,7 +39,44 @@ export async function BillingView(ctx) {
 
   for (const p of list) grid.append(planCard(ctx, p, flagshipKey));
 
+  view.append(await topupSection(ctx));
   return view;
+}
+
+// One-time "buy more changes" packs (credits never expire; used after the monthly plan quota).
+async function topupSection(ctx) {
+  const wrap = h('div', { style: { marginTop: '34px' } });
+  wrap.append(h('div', { class: 'view-head', style: { marginBottom: '14px' } },
+    h('h2', { style: { fontSize: '21px' } }, 'Need a few more changes?'),
+    h('p', { class: 'muted' }, 'Grab a one-time pack — credits never expire and kick in after your monthly plan.')));
+  let packs = [];
+  try { packs = (await ctx.api.topups()).topups || []; } catch { /* none */ }
+  const row = h('div', { class: 'topups' });
+  for (const tp of packs) row.append(topupCard(ctx, tp));
+  wrap.append(row);
+  return wrap;
+}
+
+function topupCard(ctx, tp) {
+  const t = ctx.toast || toast;
+  const per = tp.price / tp.changes;
+  const btn = h('button', { class: 'btn ghost block', type: 'button' }, `Buy — $${tp.price}`);
+  btn.addEventListener('click', async () => {
+    btn.disabled = true; const lbl = `Buy — $${tp.price}`;
+    btn.replaceChildren(h('span', { class: 'spinner' }));
+    try {
+      const r = await ctx.api.topup(tp.key);
+      if (r && r.url) { window.location.href = r.url; return; }
+      t((r && r.message) || 'Card payments switch on once Stripe is connected.');
+    } catch (e) { t(e.message || 'Could not start checkout — please try again.'); }
+    btn.disabled = false; btn.replaceChildren(document.createTextNode(lbl));
+  });
+  return h('div', { class: 'card pad topup' },
+    h('div', { style: { display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '10px' } },
+      h('div', { style: { fontSize: '24px', fontWeight: 800, letterSpacing: '-0.03em' } }, `+${tp.changes}`),
+      h('div', { class: 'muted', style: { fontSize: '13px' } }, `$${per.toFixed(2)} each`)),
+    h('div', { class: 'muted', style: { fontSize: '14px', margin: '4px 0 16px' } }, `${tp.changes} extra changes, one-time`),
+    btn);
 }
 
 // Current plan + usage panel.

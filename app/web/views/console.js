@@ -13,14 +13,20 @@ export async function ConsoleView(ctx) {
   let history = [];
   try { history = (await ctx.api.requests()).requests || []; } catch { /* show empty */ }
   if (!history.length) thread.append(emptyState(ctx, fill));
-  else for (const r of history) { thread.append(userMsg(ctx, r.body)); thread.append(aiMsg(r.reply)); }
+  else for (const r of history) { thread.append(userMsg(ctx, r.body, r.images)); thread.append(aiMsg(r.reply)); }
   requestAnimationFrame(() => scrollEnd(thread));
   return wrap;
 }
 
 // ---- messages -------------------------------------------------------------
 const who = (cls, label) => h('div', { class: `who ${cls}` }, label);
-const userMsg = (ctx, text) => h('div', { class: 'msg user' }, who('', initials(ctx.me.account.email)), h('div', { class: 'bubble' }, text));
+function userMsg(ctx, text, images) {
+  const bubble = h('div', { class: 'bubble' });
+  if (Array.isArray(images) && images.length) bubble.append(h('div', { class: 'msg-imgs' }, ...images.map((p) => h('img', { src: p.dataUrl, alt: '' }))));
+  else if (Number(images) > 0) bubble.append(h('div', { class: 'imgs-note' }, icon('image'), `${images} photo${Number(images) === 1 ? '' : 's'}`));
+  if (text) bubble.append(text);
+  return h('div', { class: 'msg user' }, who('', initials(ctx.me.account.email)), bubble);
+}
 const aiMsg = (text) => h('div', { class: 'msg ai' }, orb(), h('div', { class: 'bubble' }, text));
 const aiTyping = () => h('div', { class: 'msg ai' }, orb(), h('div', { class: 'bubble' }, h('span', { class: 'typing' }, h('i'), h('i'), h('i'))));
 
@@ -39,37 +45,62 @@ function emptyState(ctx, fill) {
 
 // ---- composer -------------------------------------------------------------
 function composer(ctx, thread, ta) {
-  autoResize(ta);
   ta.addEventListener('input', () => autoResize(ta));
+  const pending = []; // [{ name, dataUrl }]
+
+  const fileInput = h('input', { type: 'file', accept: 'image/*', multiple: true, style: { display: 'none' } });
+  const attach = h('button', { class: 'attach', type: 'button', 'aria-label': 'Attach photos', title: 'Attach photos' }, icon('image'));
+  const thumbs = h('div', { class: 'attachments', hidden: true });
   const send = h('button', { class: 'btn send', type: 'button', 'aria-label': 'Send' }, icon('send'));
   const quota = h('span', {}, quotaText(ctx.me.quota));
-  const box = h('div', { class: 'box' }, ta, send);
-  const form = h('div', { class: 'composer' }, box, h('div', { class: 'hint' }, h('span', {}, 'Enter to send · Shift+Enter for a new line'), quota));
+  const box = h('div', { class: 'box' }, attach, ta, send);
+  const form = h('div', { class: 'composer' }, thumbs, box,
+    h('div', { class: 'hint' }, h('span', {}, 'Enter to send · Shift+Enter for a new line'), quota), fileInput);
+
+  const renderThumbs = () => {
+    thumbs.replaceChildren(...pending.map((p, i) =>
+      h('div', { class: 'thumb' }, h('img', { src: p.dataUrl, alt: '' }),
+        h('button', { class: 'rm', type: 'button', 'aria-label': 'Remove', onClick: () => { pending.splice(i, 1); renderThumbs(); } }, '×'))));
+    thumbs.hidden = pending.length === 0;
+  };
+
+  attach.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', async () => {
+    const files = [...(fileInput.files || [])];
+    fileInput.value = '';
+    for (const f of files) {
+      if (pending.length >= 5) { ctx.toast('Up to 5 photos at a time'); break; }
+      if (!f.type.startsWith('image/')) continue;
+      try { pending.push({ name: f.name, dataUrl: await fileToDataUrl(f) }); } catch { /* skip a bad one */ }
+    }
+    renderThumbs();
+  });
 
   const submit = async () => {
     const text = ta.value.trim();
-    if (!text) return;
+    if (!text && !pending.length) return;
+    const images = pending.splice(0); renderThumbs();
     ta.value = ''; autoResize(ta);
     const empty = thread.querySelector('.empty'); if (empty) empty.remove();
-    thread.append(userMsg(ctx, text)); scrollEnd(thread);
+    thread.append(userMsg(ctx, text, images)); scrollEnd(thread);
     const typing = aiTyping(); thread.append(typing); scrollEnd(thread);
     send.disabled = true;
     try {
-      const r = await ctx.api.sendRequest(text);
+      const r = await ctx.api.sendRequest({ body: text, images });
       typing.remove();
       const node = aiMsg(''); thread.append(node);
       typeInto(node.querySelector('.bubble'), r.reply, thread);
-      if (r.quota) { ctx.me.quota.remaining = r.quota.remaining; ctx.me.quota.freeAvailable = r.quota.freeAvailable; quota.textContent = quotaText(ctx.me.quota); }
+      if (r.quota) { Object.assign(ctx.me.quota, r.quota); quota.textContent = quotaText(ctx.me.quota); }
     } catch (e) {
       typing.remove();
+      const node = aiMsg(''); thread.append(node);
+      const b = node.querySelector('.bubble');
       if (e.status === 402) {
-        const node = aiMsg(''); thread.append(node);
-        const b = node.querySelector('.bubble');
-        b.append("You've used your changes for this period — ",
-          h('a', { href: '/billing', onClick: (ev) => { ev.preventDefault(); ctx.navigate('/billing'); } }, 'pick a plan'),
-          " to keep going and I'll get right back to it.");
+        b.append(`${(e.data && e.data.error) || "You're out of changes for now"} — `,
+          h('a', { href: '/billing', onClick: (ev) => { ev.preventDefault(); ctx.navigate('/billing'); } }, 'get more changes'),
+          " and I'll get right to it.");
       } else {
-        thread.append(aiMsg(e.message || 'Something went wrong — give it another try in a moment.'));
+        b.textContent = e.message || 'Something went wrong — give it another try in a moment.';
       }
     } finally {
       send.disabled = false; scrollEnd(thread);
@@ -78,7 +109,27 @@ function composer(ctx, thread, ta) {
 
   send.addEventListener('click', submit);
   ta.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); } });
+  requestAnimationFrame(() => autoResize(ta)); // size correctly once mounted (fixes the clipped text)
   return form;
+}
+
+// Downscale a chosen image to a compact JPEG data URL before upload.
+function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const max = 1400;
+      let w = img.naturalWidth, hgt = img.naturalHeight;
+      if (w > max || hgt > max) { const s = max / Math.max(w, hgt); w = Math.round(w * s); hgt = Math.round(hgt * s); }
+      const c = document.createElement('canvas'); c.width = w; c.height = hgt;
+      c.getContext('2d').drawImage(img, 0, 0, w, hgt);
+      URL.revokeObjectURL(url);
+      try { resolve(c.toDataURL('image/jpeg', 0.82)); } catch (e) { reject(e); }
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('bad image')); };
+    img.src = url;
+  });
 }
 
 // ---- helpers --------------------------------------------------------------
@@ -87,7 +138,7 @@ function quotaText(q) {
   if (q.remaining == null) return 'Unlimited changes';
   return `${q.remaining} change${q.remaining === 1 ? '' : 's'} left`;
 }
-function autoResize(ta) { ta.style.height = 'auto'; ta.style.height = `${Math.min(ta.scrollHeight, 160)}px`; }
+function autoResize(ta) { ta.style.height = 'auto'; ta.style.height = `${Math.min(Math.max(ta.scrollHeight || 0, 24), 168)}px`; }
 function scrollEnd(thread) { thread.scrollTop = thread.scrollHeight; }
 function typeInto(el, text, thread) {
   el.textContent = '';
