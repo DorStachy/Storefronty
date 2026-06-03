@@ -20,7 +20,7 @@
 | **1E** Per-niche cold email | approved §5.6 copy + per-niche variants, 3 inline screenshots, CAN-SPAM | ✅ DONE — assembled email eyeballed |
 | **1F** Pipeline wiring + real send | orchestrator: fill→build→screenshot→email; real end-to-end cold-pitch send | ✅ DONE — **real send verified** (see below) |
 | **2** Reply → Opus → hosted 48h | classify · Opus rebuild · QA gate · signed approval · 48h deploy · 2-link reply email | ✅ DONE — full loop tested (189/189); Opus/Cloudflare/IMAP are key-gated seams |
-| **3** Portal (sell + take money) | claim-binding · accounts/auth · plans/quota · Stripe · dashboard | ✅ DONE — full flow tested (212/212) + claim page browser-verified; Google-OAuth & live Stripe are key-gated seams |
+| **3** Portal (sell + take money) | **real SaaS**: SPA (dashboard · AI console · billing · account) + JSON API · auth · plans/quota · Stripe | ✅ DONE — rebuilt as a sharp SPA, all screens browser-verified + E2E; Google-OAuth & live Stripe are key-gated seams |
 
 Phases 4–7 (volume, marketing site, tier polish, autonomy) are outlined in the design spec; they depend on
 real sending infra + accounts and are scoped for after launch.
@@ -73,6 +73,27 @@ subscription checkout** (key-gated; shows a tidy "payments switch on soon" page 
 - **Cloudflare Workers hosting**: the deployer has the `cloudflare` engine seam; today it serves previews from the local static server. Real 48h wildcard hosting turns on with `CLOUDFLARE_API_TOKEN` + zone (set `HOSTING_ENGINE=cloudflare`).
 - **Google "Log in with Google"**: email+password is live; OAuth is an additive route pending a Google client.
 - **Real AI** (Gemini fill / Opus rebuild): deterministic, truthful fallbacks run now; richer copy turns on with the keys.
+
+### ✅ PORTAL REBUILT as a real SaaS (your "this isn't a product" note)
+
+You were right that the first portal was a thin stub. It's now a **high-end single-page app** — sharp, warm,
+on-brand (Fraunces + the brand palette), **zero npm dependencies** (keeps your supply-chain surface at zero):
+- **Login / claim** — the signed claim link opens "Create your account for {Shop}", pre-bound to his site.
+- **Dashboard** — his **live site in a real preview**, plan + remaining-changes + 48h status, a request CTA.
+- **AI request console** — the centerpiece: a Gemini-style conversation. He types "make the header navy, add
+  my patio photos"; the assistant replies in plain words (typing reveal) and the change **re-enters the rebuild
+  pipeline** automatically. Quota-aware (free change first, then the plan).
+- **Billing** — sharp plan cards (Starter/Pro/Premium, Premium flagged), Stripe checkout (graceful "switch on
+  soon" until the key lands).
+- **Account** — profile, site, domain (Premium-gated), sign out.
+
+**Infra decided + built (cheapest reliable):** one small **Fly.io Node box (~$5/mo)** serves the SPA + API +
+the site-building pipeline (needs a real browser) + the 48h preview sites, with SQLite on a volume. Cloudflare
+Pages (free static SPA) is a documented later optimization. Ship it with `app/Dockerfile` + `app/fly.toml` —
+full steps in **[docs/superpowers/PORTAL_DEPLOY.md](PORTAL_DEPLOY.md)**. All five screens were browser-verified
+logged-in, and a full-stack **Playwright E2E** drives login → dashboard → AI request → billing against a real
+spawned server. Backend JSON API: cookie sessions (scrypt passwords, HMAC), reuses the accounts/quota/Stripe
+logic. Run locally: `cd app && npm run serve` → `http://localhost:4173`.
 
 ---
 
