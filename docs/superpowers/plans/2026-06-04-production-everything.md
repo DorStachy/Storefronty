@@ -7,6 +7,13 @@
 **Branch:** `feat/production-everything` (off `phase-1a-impl` @ `6a7a404`, which carries the wow-build).
 **Merges to:** `main` after tests + Codex review + E2E pass, then deploy.
 
+## ✅ STATUS: DELIVERED (2026-06-04, autonomous overnight build)
+- Commits: `d1311b5` (backend spine) · `1a23bda` (tiers + showcases) · `3df6c38` (Codex fixes), on top of `6a7a404` (wow-build).
+- **290/290 unit tests green.** Codex adversarial review run (66/100 first pass → all 8 findings fixed).
+- **Deployed to prod:** Fly (`storefronty.fly.dev`, all secrets staged) + Cloudflare KV worker. Live-probed: `/api/plans`, `/api/me`→401, SPA, both showcases.
+- **22/22 production E2E pass** (`app/e2e-prod.mjs`) on REAL infra: cold pipeline → Email 1 → reply → real-Opus wow-build → approval → real Cloudflare KV publish (`…workers.dev/<slug>/`, HTTP 200, real shop name, **not localhost**) → Email 2 → claim=trial → Premium stub-pay → permanent + Premium-tier regen (WebGL hero) → domain → lead capture → lead `live`.
+- **Remaining = human-driven validation only:** the founder replying from Gmail + clicking claim/pay in the browser (the automated E2E simulated those steps programmatically), and flip-to-live billing = add Paddle keys (the seam is done + stub-tested).
+
 ## Standing decisions (locked by the founder; do NOT re-ask)
 - **Claim = trial, not ownership.** Clicking claim creates the account (Google or email) + grants **one free change** so they taste it. The site stays a **48h trial preview**. Only **buying a plan** makes it permanent. (Inverts today's signup→permanent behavior.)
 - **No permanent free tier.** Starter $29 is the entry paid tier. Free = the 48h preview + register + 1 change.
