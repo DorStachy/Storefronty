@@ -12,7 +12,8 @@
     "tick": "node --experimental-sqlite src/cli.js tick",
     "serve": "node src/server.js",
     "cli": "node --experimental-sqlite src/cli.js",
-    "test": "node --experimental-sqlite --test"
+    "test": "node --experimental-sqlite --test",
+    "e2e": "node --experimental-sqlite e2e.mjs"
   },
   "dependencies": {
     "nodemailer": "^6.10.1",

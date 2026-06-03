@@ -1,0 +1,37 @@
+# Fly.io config for the Storefronty backend (Node API + portal SPA + pipeline).
+# Deploy:  fly launch --no-deploy   (once, to create the app + volume)
+#          fly volumes create sf_data --size 1
+#          fly secrets set SIGN_SECRET=... GMAIL_USER=... GMAIL_APP_PASSWORD=... \
+#                          GEMINI_API_KEY=... ANTHROPIC_API_KEY=... \
+#                          STRIPE_SECRET_KEY=... STRIPE_WEBHOOK_SECRET=... \
+#                          GOOGLE_PLACES_KEY=... SERPER_API_KEY=...
+#          fly deploy
+app = "storefronty"
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "8080"
+  DB_PATH = "/data/storefronty.db"
+  HOSTING_ENGINE = "local"
+  # Set these to your real domain once you have it (the reply-email links use PORTAL_BASE_URL):
+  PUBLIC_BASE_URL = "https://storefronty.fly.dev"
+  PORTAL_BASE_URL = "https://storefronty.fly.dev"
+  BRAND = "Storefronty"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "suspend"
+  auto_start_machines = true
+  min_machines_running = 1
+
+[[mounts]]
+  source = "sf_data"
+  destination = "/data"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "1024mb"   # chromium (screenshotter/QA) needs headroom
