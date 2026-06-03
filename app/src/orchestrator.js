@@ -8,8 +8,7 @@ import { research } from './researcher/index.js';
 import { buildSiteV2, writeSite, slugFor, PUBLIC_DIR } from './builder/build2.js';
 import { downloadPhotos } from './photos/index.js';
 import { fillLead } from './fill/llm.js';
-import { fillDeterministic } from './fill/deterministic.js';
-import { applyOpusEdit } from './fill/opus.js';
+import { applyArtDirection } from './fill/artdirect.js';
 import { screenshotForEmail, shotsFromDir } from './screenshot/index.js';
 import { qaCheck } from './qa/index.js';
 import { deploy } from './deployer/index.js';
@@ -118,14 +117,18 @@ const HANDLERS = {
     db.setStatus(lead.id, 'emailed', { to: r.to, dry: r.dry, id: r.id });
   },
 
-  // The owner replied with a change → rebuild the real site via Opus (deterministic fallback without
-  // a key), gate it through Playwright QA, then route to founder approval (review mode) or straight
-  // to approved (auto mode). A QA failure quarantines to needs_human rather than shipping broken.
+  // The owner replied with a change → Claude Opus 4.8 art-directs a bespoke rebuild: one grounded tool
+  // call emits BOTH a ContentContract (facts/copy) and a DesignSpec (palette/fonts/layout/mood), which
+  // writeSite renders as the token-driven v3 site with a generated, self-contained stylesheet
+  // (deterministic always-ships pair without a key). Gate it through Playwright + static QA (real shop
+  // name + phone present, no external scripts/links), then route to founder approval (review mode) or
+  // straight to approved (auto mode). A QA failure quarantines to needs_human rather than shipping broken.
   replied: async (db, lead) => {
     const change = latestChange(db, lead.id);
-    const contract = await applyOpusEdit(lead, { baseContract: fillDeterministic(lead), change });
-    const built = await writeSite(lead, contract, { images: await leadImages(lead, config) });
-    const qa = await qaCheck({ htmlPath: built.htmlPath });
+    const { contract, design } = await applyArtDirection(lead, { change, photos: [] });
+    const built = await writeSite(lead, contract, { design, images: await leadImages(lead, config) });
+    const facts = [contract.shopName, contract.contact?.phone].filter(Boolean);
+    const qa = await qaCheck({ htmlPath: built.htmlPath, mustInclude: facts });
     if (!qa.ok) { db.setStatus(lead.id, 'needs_human', { reason: 'qa_failed', issues: qa.issues.map((i) => i.type) }); return; }
     db.addSite(lead.id, { slug: built.slug, engine: built.engine, htmlPath: built.htmlPath });
     // Rebuild succeeded → advance through 'editing' (the state machine's edit edge) to the approval

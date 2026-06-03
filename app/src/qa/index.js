@@ -6,10 +6,34 @@
 // injectable `launch` (a fake browser in unit tests), file:// via pathToFileURL, and a context
 // created with { viewport, reducedMotion:'reduce' }. A "broken page" is a normal RESULT
 // ({ ok:false, issues }) — only an infra error (no browser) propagates to the caller's try/catch.
+import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { escapeHtml } from '../util/html.js';
 
 const fileUrl = (htmlPath) => pathToFileURL(resolve(htmlPath)).href;
+
+// Pure, browser-free QA pass over the raw HTML string (Phase-2 wow-build §6). It enforces two
+// invariants the headless crawl can't cheaply assert: the site states the REAL business facts, and
+// it is fully SELF-CONTAINED (it must inline cleanly into the 48h KV blob). No I/O, no deps — just
+// string checks — so it's fast/offline and reusable from tests and the always-ships invariant.
+//   issues — [{ type, ... }]
+//     missing_fact     — a required `mustInclude` string (shop name; phone if known) is absent
+//     external_script  — a <script src="http..."> (the site must carry no external JS)
+//     external_link    — a <link href="http..."> to any host other than fonts.googleapis/gstatic
+//                        (Google Fonts is the ONLY sanctioned external reference)
+export function staticQa(html = '', { mustInclude = [] } = {}) {
+  const issues = [];
+  // Compare against BOTH the raw fact and its HTML-escaped form: the renderer escapes shop names, so a
+  // business like "Côte & Cendre" appears as "Côte &amp; Cendre" — checking only the raw string would
+  // spuriously flag a correct site as missing_fact (→ needless needs_human quarantine in review mode).
+  for (const f of mustInclude) if (f && !html.includes(f) && !html.includes(escapeHtml(f))) issues.push({ type: 'missing_fact', fact: f });
+  if (/<script\b[^>]*\bsrc=["']https?:/i.test(html)) issues.push({ type: 'external_script' });
+  for (const m of html.matchAll(/<link\b[^>]*\bhref=["'](https?:\/\/[^"']+)["']/gi)) {
+    if (!/^https:\/\/fonts\.(googleapis|gstatic)\.com/i.test(m[1])) issues.push({ type: 'external_link', href: m[1] });
+  }
+  return { ok: issues.length === 0, issues };
+}
 
 // Crawl one built page and report problems. Returns { ok, issues, checked }.
 //   issues  — [{ type, detail }] (type ∈ console_error | broken_image | bad_link | leftover_token | mobile_overflow)
@@ -21,9 +45,19 @@ export async function qaCheck({
   launch,
   mobileWidth = 390,
   navTimeoutMs = 15000,
+  mustInclude,
+  facts,
 } = {}) {
   if (!htmlPath && !url) throw new Error('qaCheck: htmlPath or url required');
   const target = url || fileUrl(htmlPath);
+
+  // Static (browser-free) checks run ONLY when the caller supplies facts to verify — either an explicit
+  // `mustInclude` list or a `facts` object (a validated contract) we derive the must-include strings
+  // from (the real shop name + phone). Legacy callers that pass neither get the unchanged browser-only
+  // gate. Requires htmlPath (we read the raw file); a `url`-only caller can't be statically inspected.
+  const includes = mustInclude
+    || (facts ? [facts.shopName, facts.contact?.phone].filter(Boolean) : null);
+  const wantStatic = Array.isArray(includes) && htmlPath;
 
   if (!launch) {
     const { chromium } = await import('playwright');
@@ -109,6 +143,13 @@ export async function qaCheck({
     await context.close();
   } finally {
     await browser.close();
+  }
+
+  // Additive static pass: facts-present + self-contained. Reads the built HTML once and folds any
+  // issues into the same list, so the single `ok` reflects both the live crawl and the source checks.
+  if (wantStatic) {
+    const html = await readFile(resolve(htmlPath), 'utf8');
+    for (const issue of staticQa(html, { mustInclude: includes }).issues) issues.push(issue);
   }
 
   return { ok: issues.length === 0, issues, checked };

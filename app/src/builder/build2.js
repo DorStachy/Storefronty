@@ -7,7 +7,8 @@ import { fileURLToPath } from 'node:url';
 import { fillDeterministic } from '../fill/deterministic.js';
 import { validateContract } from '../contract/contract.js';
 import { themeForNiche } from '../themes/map.js';
-import { renderContract } from './render.js';
+import { renderContract, renderSiteV3 } from './render.js';
+import { validateDesignSpec } from '../design/spec.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 export const PUBLIC_DIR = resolve(here, '..', '..', 'public');
@@ -26,22 +27,31 @@ export const slugFor = (lead) => slugify(lead && lead.name) || `lead-${(lead && 
 // (fresh build from a fill) and the Phase-2 reply-edit flow (an Opus-revised contract).
 // `images` = the shop's own photos as relative URLs under the slug dir (e.g. 'img/photo-0.jpg').
 // Empty → the theme's decorative fallback is used.
-export async function writeSite(lead, contract, { theme, images = [] } = {}) {
-  const requestedTheme = theme || themeForNiche(lead.niche);
-  // Fall back to the editorial template if the requested theme isn't built (defensive; all 3 ship).
-  const renderedTheme = existsSync(join(THEME_DIR, requestedTheme, 'template.html')) ? requestedTheme : 'editorial';
-
+export async function writeSite(lead, contract, { theme, design, images = [] } = {}) {
   const r = validateContract(contract);
   if (!r.ok) throw new Error(`contract invalid: ${r.errors.join(', ')}`);
-  const { html } = await renderContract(r.value, renderedTheme, { cssHref: './theme.css', images });
-
   const slug = slugFor(lead);
   const dir = join(PUBLIC_DIR, slug);
   mkdirSync(dir, { recursive: true });
-  copyFileSync(join(THEME_DIR, renderedTheme, 'theme.css'), join(dir, 'theme.css'));
   const htmlPath = join(dir, 'index.html');
-  writeFileSync(htmlPath, html);
 
+  if (design) {
+    // Phase-2 wow-build: token-driven, generated CSS (the DesignSpec becomes theme.css, never a static
+    // copy). Self-contained — fonts arrive via the <link> renderSiteV3 injects, nothing else external.
+    const d = validateDesignSpec(design);
+    const { html, css } = await renderSiteV3(r.value, d, { images });
+    writeFileSync(join(dir, 'theme.css'), css);
+    writeFileSync(htmlPath, html);
+    return { engine: 'theme-v3', slug, layout: d.layout, theme: 'v3', htmlPath };
+  }
+
+  // Legacy path (cold-build Stage 1) — unchanged: niche-matched static theme + copied stylesheet.
+  const requestedTheme = theme || themeForNiche(lead.niche);
+  // Fall back to the editorial template if the requested theme isn't built (defensive; all 3 ship).
+  const renderedTheme = existsSync(join(THEME_DIR, requestedTheme, 'template.html')) ? requestedTheme : 'editorial';
+  const { html } = await renderContract(r.value, renderedTheme, { cssHref: './theme.css', images });
+  copyFileSync(join(THEME_DIR, renderedTheme, 'theme.css'), join(dir, 'theme.css'));
+  writeFileSync(htmlPath, html);
   return { engine: 'theme', slug, requestedTheme, renderedTheme, theme: renderedTheme, htmlPath };
 }
 

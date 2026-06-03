@@ -4,6 +4,8 @@ import { readFile } from 'node:fs/promises';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { escapeHtml } from '../util/html.js';
+import { designToCss } from '../design/css.js';
+import { googleFontsHref } from '../design/spec.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const THEME_DIR = resolve(here, '..', '..', 'site', 'themes');
@@ -53,4 +55,28 @@ export async function renderContract(contract, theme = 'editorial', { cssHref = 
     }`,
   };
   return { html: fill(tpl, map), theme };
+}
+
+// Token-driven render: same content tokens as renderContract, but the look comes from the DesignSpec
+// (generated CSS + Google-Fonts link). Returns { html, css } so writeSite can write the generated CSS.
+export async function renderSiteV3(contract, design, { images = [] } = {}) {
+  const tpl = await readFile(resolve(THEME_DIR, 'v3', 'template.html'), 'utf8');
+  const c = contract;
+  const imgs = (Array.isArray(images) ? images : []).filter(Boolean);
+  const hero = imgs[0] || null;
+  const galleryImgs = (imgs.length > 1 ? imgs.slice(1) : imgs).slice(0, 6);
+  const map = {
+    shopName: e(c.shopName), eyebrow: e(c.eyebrow || ''), tagline: e(c.tagline),
+    cssHref: './theme.css', fontsHref: e(googleFontsHref(design.fonts)), layout: e(design.layout),
+    ctaLabel: e(c.cta.label),
+    heroImageHtml: hero ? `<img class="hero-photo" src="${e(hero)}" alt="${e(c.shopName)}" loading="eager"><span class="hero-scrim" aria-hidden="true"></span>` : '',
+    aboutHtml: c.about.paragraphs.map((p) => `<p>${e(p)}</p>`).join(''),
+    servicesHtml: c.services.map((s) => `<div class="item"><div><h3>${e(s.name)}</h3><p class="muted">${e(s.desc)}</p></div>${s.price ? `<span class="price">${e(s.price)}</span>` : ''}</div>`).join(''),
+    hoursHtml: c.hours.display.map((d) => `<li><span>${e(d.day)}</span><span>${e(d.value)}</span></li>`).join(''),
+    ratingHtml: c.rating.count ? `<span class="star">★</span> ${e(c.rating.stars)} · ${e(c.rating.count)} Google reviews` : '',
+    reviewsHtml: (c.reviewHighlights || []).map((r) => `<blockquote>${e(r.quote)}${r.author ? `<cite>${e(r.author)}</cite>` : ''}</blockquote>`).join(''),
+    galleryHtml: galleryImgs.length ? galleryImgs.map((src, i) => `<div class="tile"><img src="${e(src)}" alt="${e(c.galleryQueries[i] || c.shopName)}" loading="lazy"></div>`).join('') : c.galleryQueries.slice(0, 3).map((q) => `<div class="tile"><span class="cap">${e(q)}</span></div>`).join(''),
+    contactHtml: `${c.contact.addressLines.map((l) => `<div>${e(l)}</div>`).join('')}${c.contact.phone ? `<div><a href="tel:${e(c.contact.phone)}">${e(c.contact.phone)}</a></div>` : ''}`,
+  };
+  return { html: fill(tpl, map), css: designToCss(design) };
 }
