@@ -27,7 +27,7 @@ export const slugFor = (lead) => slugify(lead && lead.name) || `lead-${(lead && 
 // (fresh build from a fill) and the Phase-2 reply-edit flow (an Opus-revised contract).
 // `images` = the shop's own photos as relative URLs under the slug dir (e.g. 'img/photo-0.jpg').
 // Empty → the theme's decorative fallback is used.
-export async function writeSite(lead, contract, { theme, design, images = [] } = {}) {
+export async function writeSite(lead, contract, { theme, design, images = [], tier = 'starter' } = {}) {
   const r = validateContract(contract);
   if (!r.ok) throw new Error(`contract invalid: ${r.errors.join(', ')}`);
   const slug = slugFor(lead);
@@ -38,11 +38,13 @@ export async function writeSite(lead, contract, { theme, design, images = [] } =
   if (design) {
     // Phase-2 wow-build: token-driven, generated CSS (the DesignSpec becomes theme.css, never a static
     // copy). Self-contained — fonts arrive via the <link> renderSiteV3 injects, nothing else external.
+    // `tier` (starter|pro|premium) selects the richness on the SAME engine: Starter is byte-stable vs
+    // the original; Pro/Premium add motion + a lead form (+ WebGL hero/catalogue/order form on Premium).
     const d = validateDesignSpec(design);
-    const { html, css } = await renderSiteV3(r.value, d, { images });
+    const { html, css } = await renderSiteV3(r.value, d, { images, tier });
     writeFileSync(join(dir, 'theme.css'), css);
     writeFileSync(htmlPath, html);
-    return { engine: 'theme-v3', slug, layout: d.layout, theme: 'v3', htmlPath };
+    return { engine: 'theme-v3', slug, layout: d.layout, theme: 'v3', tier, htmlPath };
   }
 
   // Legacy path (cold-build Stage 1) — unchanged: niche-matched static theme + copied stylesheet.

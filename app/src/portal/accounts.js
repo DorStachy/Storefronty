@@ -8,8 +8,8 @@ import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 // own live preview, so it has none.
 export const PLANS = {
   starter: { key: 'starter', label: 'Starter', price: 29, quota: 3, exampleUrl: null },
-  pro: { key: 'pro', label: 'Pro', price: 49, quota: 15, exampleUrl: '/showcase-pro/' },
-  premium: { key: 'premium', label: 'Premium', price: 99, quota: Infinity, domainIncluded: true, exampleUrl: '/showcase-premium/' },
+  pro: { key: 'pro', label: 'Pro', price: 49, quota: 15, exampleUrl: '/portal/showcase-pro/' },
+  premium: { key: 'premium', label: 'Premium', price: 99, quota: Infinity, domainIncluded: true, exampleUrl: '/portal/showcase-premium/' },
 };
 export const PLAN_LIST = [PLANS.starter, PLANS.pro, PLANS.premium];
 

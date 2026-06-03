@@ -1,0 +1,691 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Maison Noir — Modern fine dining</title>
+<meta name="description" content="Maison Noir is a candle-lit dining room serving a seasonal tasting menu and an obsessive cellar. Reserve your table." />
+<meta name="theme-color" content="#0b0a0c" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#0b0a0c;          /* near-black */
+    --bg-2:#121016;        /* raised panel */
+    --bg-3:#181520;        /* deeper panel */
+    --ink:#f1ece4;         /* warm bone text */
+    --ink-soft:#a59e93;    /* muted */
+    --gold:#c9a35e;        /* candle gold */
+    --gold-2:#e2c489;
+    --wine:#7c2a36;        /* deep bordeaux */
+    --line:rgba(201,163,94,.18);
+    --line-soft:rgba(241,236,228,.08);
+    --r:14px;
+    --maxw:1180px;
+    --ease:cubic-bezier(.19,1,.22,1);
+  }
+  *,*::before,*::after{ box-sizing:border-box; }
+  html{ scroll-behavior:smooth; -webkit-text-size-adjust:100%; }
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:"Inter",system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+    font-weight:300; font-size:clamp(16px,1.02vw,17px); line-height:1.7; overflow-x:hidden;
+    -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+  }
+  h1,h2,h3{ font-family:"Cormorant Garamond",Georgia,serif; font-weight:500; line-height:1.04; letter-spacing:.005em; margin:0; }
+  a{ color:inherit; }
+  img{ display:block; max-width:100%; }
+  ::selection{ background:var(--gold); color:#1a140a; }
+  .wrap{ width:100%; max-width:var(--maxw); margin-inline:auto; padding-inline:clamp(20px,5vw,48px); }
+  .eyebrow{
+    font-family:"Inter",sans-serif; font-size:.7rem; letter-spacing:.34em; text-transform:uppercase; font-weight:500;
+    color:var(--gold); margin:0 0 1.1rem; display:inline-flex; align-items:center; gap:.7rem;
+  }
+  .eyebrow::before{ content:""; width:30px; height:1px; background:var(--gold); opacity:.7; }
+  .lede{ color:var(--ink-soft); font-weight:300; max-width:56ch; }
+
+  a:focus-visible,button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{
+    outline:2px solid var(--gold-2); outline-offset:4px; border-radius:4px;
+  }
+  .btn{
+    --bg:var(--gold); --fg:#16110a;
+    display:inline-flex; align-items:center; gap:.6rem; cursor:pointer;
+    font-family:"Inter",sans-serif; font-weight:500; font-size:.82rem; letter-spacing:.12em; text-transform:uppercase; text-decoration:none;
+    padding:.95rem 1.9rem; border-radius:999px; border:1px solid transparent;
+    background:var(--bg); color:var(--fg); transition:transform .35s var(--ease), box-shadow .35s var(--ease), background .35s, color .35s;
+  }
+  .btn:hover{ transform:translateY(-2px); box-shadow:0 16px 34px -18px rgba(201,163,94,.7); }
+  .btn--outline{ --bg:transparent; --fg:var(--ink); border-color:var(--line); }
+  .btn--outline:hover{ background:rgba(201,163,94,.08); color:var(--gold-2); border-color:var(--gold); }
+
+  /* ---- header ---- */
+  header.nav{
+    position:fixed; inset:0 0 auto 0; z-index:60; transition:background .4s, border-color .4s, backdrop-filter .4s;
+    border-bottom:1px solid transparent;
+  }
+  header.nav.scrolled{
+    background:color-mix(in srgb, var(--bg) 80%, transparent);
+    backdrop-filter:saturate(140%) blur(12px); border-bottom-color:var(--line-soft);
+  }
+  .nav-in{ display:flex; align-items:center; justify-content:space-between; gap:1rem; height:76px; }
+  .brand{ font-family:"Cormorant Garamond",serif; font-size:1.5rem; font-weight:600; letter-spacing:.16em; text-transform:uppercase; text-decoration:none; color:var(--ink); }
+  .brand span{ color:var(--gold); }
+  nav.links{ display:flex; align-items:center; gap:2rem; }
+  nav.links a{ text-decoration:none; font-size:.78rem; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-soft); transition:color .25s; }
+  nav.links a:hover{ color:var(--gold-2); }
+  @media (max-width:860px){ nav.links a:not(.nav-cta){ display:none; } }
+
+  /* ---- HERO (WebGL canvas) ---- */
+  .hero{ position:relative; min-height:100svh; display:grid; align-items:center; overflow:hidden; isolation:isolate; }
+  #hero-gl{ position:absolute; inset:0; width:100%; height:100%; display:block; z-index:-2; }
+  /* CSS fallback gradient — always painted UNDER the canvas, shows through if WebGL no-ops */
+  .hero::before{
+    content:""; position:absolute; inset:0; z-index:-3;
+    background:
+      radial-gradient(120% 90% at 78% 18%, rgba(124,42,54,.55), transparent 55%),
+      radial-gradient(90% 70% at 12% 88%, rgba(201,163,94,.28), transparent 60%),
+      linear-gradient(160deg, #14101a 0%, #0b0a0c 55%, #08070a 100%);
+  }
+  /* readability scrim over the animation */
+  .hero::after{
+    content:""; position:absolute; inset:0; z-index:-1; pointer-events:none;
+    background:linear-gradient(180deg, rgba(8,7,10,.35) 0%, rgba(8,7,10,.15) 40%, rgba(8,7,10,.78) 100%);
+  }
+  .hero-inner{ padding-block:clamp(7rem,16vh,11rem) clamp(3rem,8vh,5rem); }
+  .hero h1{ font-size:clamp(3rem,9vw,7.5rem); font-weight:500; letter-spacing:.01em; }
+  .hero h1 em{ font-style:italic; color:var(--gold-2); }
+  .hero .lede{ margin:1.8rem 0 2.6rem; font-size:clamp(1.05rem,1.6vw,1.3rem); max-width:46ch; }
+  .hero-cta{ display:flex; flex-wrap:wrap; gap:1rem; align-items:center; }
+  .hero-meta{ display:flex; gap:2.4rem; flex-wrap:wrap; margin-top:3.2rem; padding-top:1.8rem; border-top:1px solid var(--line-soft); }
+  .hero-meta .m b{ font-family:"Cormorant Garamond",serif; font-size:1.6rem; color:var(--gold-2); display:block; line-height:1; }
+  .hero-meta .m span{ font-size:.72rem; letter-spacing:.16em; text-transform:uppercase; color:var(--ink-soft); }
+  .scroll-hint{ position:absolute; left:50%; bottom:1.8rem; transform:translateX(-50%); z-index:1; font-size:.66rem; letter-spacing:.3em; text-transform:uppercase; color:var(--ink-soft); display:flex; flex-direction:column; align-items:center; gap:.6rem; }
+  .scroll-hint .line{ width:1px; height:42px; background:linear-gradient(var(--gold), transparent); }
+  @media (prefers-reduced-motion:no-preference){ .scroll-hint .line{ animation:drip 2.4s var(--ease) infinite; transform-origin:top; } @keyframes drip{ 0%,100%{ transform:scaleY(.4); opacity:.4; } 50%{ transform:scaleY(1); opacity:1; } } }
+
+  /* ---- sections ---- */
+  section{ position:relative; padding:clamp(4.5rem,11vw,8rem) 0; }
+  .section-head{ max-width:64ch; margin-bottom:clamp(2.5rem,5vw,4rem); }
+  .section-head h2{ font-size:clamp(2.4rem,5.5vw,4rem); }
+  .section-head p{ margin-top:1.2rem; }
+  .rule{ height:1px; background:linear-gradient(90deg, transparent, var(--line), transparent); border:0; margin:0; }
+
+  /* ---- ethos / story ---- */
+  .ethos-grid{ display:grid; grid-template-columns:1.1fr .9fr; gap:clamp(2.5rem,6vw,5rem); align-items:center; }
+  @media (max-width:880px){ .ethos-grid{ grid-template-columns:1fr; } }
+  .ethos-figure{ position:relative; }
+  .ethos-figure img{ width:100%; aspect-ratio:4/5; object-fit:cover; border-radius:var(--r); filter:saturate(.85) contrast(1.02); background:var(--bg-3); }
+  .ethos-figure figcaption{ position:absolute; left:1.2rem; bottom:1.2rem; right:1.2rem; font-family:"Cormorant Garamond",serif; font-style:italic; font-size:1.05rem; color:var(--ink); text-shadow:0 1px 12px rgba(0,0,0,.8); }
+  .pull{ font-family:"Cormorant Garamond",serif; font-size:clamp(1.4rem,2.6vw,2rem); font-style:italic; color:var(--ink); line-height:1.3; margin:0 0 1.6rem; }
+  .pull span{ color:var(--gold-2); }
+
+  /* ---- menu / catalogue grid ---- */
+  .menu-wrap{ background:var(--bg-2); }
+  .menu-grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:clamp(1.2rem,2.4vw,2rem) clamp(2.5rem,5vw,5rem); }
+  @media (max-width:760px){ .menu-grid{ grid-template-columns:1fr; gap:1.6rem; } }
+  .course{ border-top:1px solid var(--line-soft); padding-top:1.6rem; }
+  .course-lead{ display:flex; justify-content:space-between; align-items:baseline; gap:1rem; }
+  .course h3{ font-size:1.55rem; }
+  .course .dots{ flex:1; border-bottom:1px dotted var(--line); margin:0 .3rem .35rem; min-width:18px; }
+  .course .price{ font-family:"Cormorant Garamond",serif; font-size:1.4rem; color:var(--gold-2); white-space:nowrap; }
+  .course p{ color:var(--ink-soft); font-size:.94rem; margin:.5rem 0 0; max-width:46ch; }
+  .course .note{ display:inline-block; margin-top:.7rem; font-size:.66rem; letter-spacing:.16em; text-transform:uppercase; color:var(--gold); }
+  .menu-foot{ margin-top:clamp(2.5rem,5vw,3.5rem); display:flex; flex-wrap:wrap; gap:1.4rem; align-items:center; justify-content:space-between; }
+  .menu-foot .tasting{ font-family:"Cormorant Garamond",serif; font-size:1.3rem; font-style:italic; color:var(--ink); }
+  .menu-foot .tasting b{ color:var(--gold-2); font-style:normal; }
+
+  /* ---- experience cards ---- */
+  .exp-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:1.4rem; }
+  @media (max-width:860px){ .exp-grid{ grid-template-columns:1fr; } }
+  .exp{ background:var(--bg-2); border:1px solid var(--line-soft); border-radius:var(--r); padding:2rem 1.8rem; transition:transform .5s var(--ease), border-color .5s, background .5s; }
+  @media (prefers-reduced-motion:no-preference){ .exp:hover{ transform:translateY(-6px); border-color:var(--line); background:var(--bg-3); } }
+  .exp .num{ font-family:"Cormorant Garamond",serif; font-size:1.1rem; color:var(--gold); letter-spacing:.1em; }
+  .exp h3{ font-size:1.7rem; margin:.6rem 0 .7rem; }
+  .exp p{ color:var(--ink-soft); font-size:.94rem; margin:0; }
+
+  /* ---- gallery band ---- */
+  .band{ display:grid; grid-template-columns:repeat(3,1fr); gap:1rem; }
+  @media (max-width:760px){ .band{ grid-template-columns:1fr 1fr; } }
+  .band figure{ margin:0; overflow:hidden; border-radius:var(--r); aspect-ratio:3/4; }
+  .band figure:first-child{ grid-row:span 2; aspect-ratio:auto; }
+  @media (max-width:760px){ .band figure:first-child{ grid-row:span 1; aspect-ratio:3/4; } }
+  .band img{ width:100%; height:100%; object-fit:cover; filter:saturate(.85) brightness(.92); transition:transform .9s var(--ease), filter .9s; background:var(--bg-3); }
+  @media (prefers-reduced-motion:no-preference){ .band figure:hover img{ transform:scale(1.05); filter:saturate(1) brightness(1); } }
+
+  /* ---- reservation form ---- */
+  .reserve{ background:linear-gradient(180deg, var(--bg-2), var(--bg)); }
+  .reserve-grid{ display:grid; grid-template-columns:.95fr 1.05fr; gap:clamp(2.5rem,5vw,4.5rem); align-items:start; }
+  @media (max-width:880px){ .reserve-grid{ grid-template-columns:1fr; } }
+  .res-info .detail{ display:flex; gap:1rem; padding:1.2rem 0; border-bottom:1px solid var(--line-soft); }
+  .res-info .detail .k{ font-size:.7rem; letter-spacing:.18em; text-transform:uppercase; color:var(--gold); width:96px; flex:none; padding-top:.2rem; }
+  .res-info .detail .v{ color:var(--ink); }
+  .res-info .detail .v small{ display:block; color:var(--ink-soft); }
+
+  form.res{ background:var(--bg-3); border:1px solid var(--line); border-radius:18px; padding:clamp(1.6rem,3vw,2.4rem); }
+  form.res h3{ font-size:1.9rem; }
+  form.res .sub{ color:var(--ink-soft); margin:.5rem 0 1.8rem; font-size:.95rem; }
+  .field{ margin-bottom:1.15rem; }
+  .field label{ display:block; font-size:.7rem; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-soft); margin-bottom:.5rem; }
+  .field input,.field select,.field textarea{
+    width:100%; font-family:"Inter",sans-serif; font-size:1rem; font-weight:300; color:var(--ink);
+    background:var(--bg); border:1px solid var(--line-soft); border-radius:10px; padding:.85rem 1rem; transition:border-color .25s, background .25s;
+  }
+  .field input::placeholder,.field textarea::placeholder{ color:#6f6a62; }
+  .field input:focus,.field select:focus,.field textarea:focus{ border-color:var(--gold); background:#0d0c10; }
+  .field select{ appearance:none; background-image:linear-gradient(45deg,transparent 50%,var(--gold) 50%),linear-gradient(135deg,var(--gold) 50%,transparent 50%); background-position:calc(100% - 20px) 1.25rem,calc(100% - 14px) 1.25rem; background-size:6px 6px; background-repeat:no-repeat; }
+  .field textarea{ resize:vertical; min-height:88px; }
+  .grid-2{ display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+  @media (max-width:520px){ .grid-2{ grid-template-columns:1fr; } }
+  form.res button{ width:100%; justify-content:center; margin-top:.5rem; }
+  .res-ok{ display:none; margin-top:1.1rem; padding:1rem 1.2rem; border-radius:10px; background:rgba(201,163,94,.1); border:1px solid var(--line); font-size:.92rem; color:var(--gold-2); }
+  .res-ok.show{ display:block; }
+
+  /* ---- domain flourish ---- */
+  .domain{ text-align:center; }
+  .domain .bar{
+    display:inline-flex; align-items:center; gap:.7rem; margin-top:1.8rem; padding:.7rem .7rem .7rem 1.3rem;
+    background:var(--bg-3); border:1px solid var(--line); border-radius:999px; font-family:"Inter",sans-serif; font-size:.95rem; color:var(--ink-soft);
+  }
+  .domain .bar .lock{ color:var(--gold); }
+  .domain .bar b{ color:var(--ink); font-weight:500; }
+  .domain .bar .pill{ background:var(--gold); color:#16110a; font-size:.7rem; letter-spacing:.1em; text-transform:uppercase; font-weight:600; padding:.4rem .9rem; border-radius:999px; }
+
+  /* ---- footer ---- */
+  footer{ border-top:1px solid var(--line-soft); padding:clamp(3.5rem,7vw,5rem) 0 2.5rem; }
+  .foot-grid{ display:grid; grid-template-columns:1.6fr 1fr 1fr; gap:2.5rem; }
+  @media (max-width:780px){ .foot-grid{ grid-template-columns:1fr; gap:1.8rem; } }
+  footer .fbrand{ font-family:"Cormorant Garamond",serif; font-size:2rem; letter-spacing:.14em; text-transform:uppercase; }
+  footer .fbrand span{ color:var(--gold); }
+  footer p,footer a{ color:var(--ink-soft); font-size:.9rem; text-decoration:none; }
+  footer a:hover{ color:var(--gold-2); }
+  footer .col-title{ font-size:.68rem; letter-spacing:.2em; text-transform:uppercase; color:var(--gold); margin:0 0 1rem; }
+  footer ul{ list-style:none; margin:0; padding:0; display:grid; gap:.6rem; }
+  .foot-bottom{ margin-top:3rem; padding-top:1.6rem; border-top:1px solid var(--line-soft); display:flex; justify-content:space-between; flex-wrap:wrap; gap:.6rem; font-size:.78rem; color:#6f6a62; letter-spacing:.04em; }
+
+  /* ---- scroll reveal ---- */
+  .reveal{ opacity:0; transform:translateY(26px); }
+  @media (prefers-reduced-motion:no-preference){
+    .reveal{ transition:opacity 1s var(--ease), transform 1s var(--ease); }
+    .reveal.in{ opacity:1; transform:none; }
+  }
+  @media (prefers-reduced-motion:reduce){ .reveal{ opacity:1; transform:none; } }
+</style>
+</head>
+<body>
+<a class="skip" href="#main" style="position:absolute;left:-999px;top:auto;background:var(--gold);color:#16110a;padding:.6rem 1rem;border-radius:8px;z-index:99;">Skip to content</a>
+
+<header class="nav" id="topnav">
+  <div class="wrap nav-in">
+    <a class="brand" href="#top" aria-label="Maison Noir home">Maison<span>·</span>Noir</a>
+    <nav class="links" aria-label="Primary">
+      <a href="#ethos">The house</a>
+      <a href="#menu">Menu</a>
+      <a href="#experience">Experience</a>
+      <a href="#gallery">Gallery</a>
+      <a class="btn btn--outline nav-cta" href="#reserve">Reserve</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+  <span id="top"></span>
+  <!-- HERO with raw inline WebGL2 -->
+  <section class="hero" aria-labelledby="hero-h">
+    <canvas id="hero-gl" aria-hidden="true"></canvas>
+    <div class="wrap hero-inner">
+      <p class="eyebrow reveal">Modern fine dining · by reservation</p>
+      <h1 id="hero-h" class="reveal">An evening,<br><em>composed.</em></h1>
+      <p class="lede reveal">A candle-lit room, a seasonal tasting menu, and a cellar we lose ourselves in. Dinner at Maison Noir is one continuous, considered gesture — from the first pour to the last.</p>
+      <div class="hero-cta reveal">
+        <a class="btn" href="#reserve">Reserve a table</a>
+        <a class="btn btn--outline" href="#menu">View the menu</a>
+      </div>
+      <div class="hero-meta reveal">
+        <div class="m"><b>7</b><span>Course tasting</span></div>
+        <div class="m"><b>400+</b><span>Cellar references</span></div>
+        <div class="m"><b>2 ★</b><span>Recognized kitchen</span></div>
+      </div>
+    </div>
+    <div class="scroll-hint" aria-hidden="true"><span>Scroll</span><span class="line"></span></div>
+  </section>
+
+  <!-- ETHOS -->
+  <section id="ethos" aria-labelledby="ethos-h">
+    <div class="wrap ethos-grid">
+      <div class="reveal">
+        <p class="eyebrow">The house</p>
+        <h2 id="ethos-h">Restraint, then<br>quiet abundance.</h2>
+        <p class="pull">We cook for the <span>table</span>, not the camera — flavors that arrive in their season and leave a little too soon.</p>
+        <p class="lede">Chef Aurélie Vance opened Maison Noir to chase a single idea: that an evening can be plated. The menu changes when the market does, the wine pairings are argued over nightly, and the dining room is kept deliberately small — forty seats, one service.</p>
+        <p class="lede" style="margin-top:1.1rem">Everything that can be made in-house is: the cultured butter, the aged garums, the bread pulled warm to your table. The rest we source from a short list of growers, divers, and foragers we trust like family.</p>
+      </div>
+      <figure class="ethos-figure reveal" style="margin:0">
+        <img alt="A plated dish under warm low light, garnished with herbs and a glossy reduction"
+          src="https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=1000&auto=format&fit=crop" loading="lazy" />
+        <figcaption>Course IV — celeriac, brown butter, black truffle.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <hr class="rule" />
+
+  <!-- MENU / CATALOGUE -->
+  <div class="menu-wrap">
+    <section id="menu" aria-labelledby="menu-h">
+      <div class="wrap">
+        <div class="section-head reveal">
+          <p class="eyebrow">The menu</p>
+          <h2 id="menu-h">Tonight&rsquo;s composition</h2>
+          <p>A seven-movement tasting, served as one. Below, a few of the plates currently in service — the full menu reveals itself at the table.</p>
+        </div>
+        <div class="menu-grid">
+          <div class="course reveal">
+            <div class="course-lead"><h3>Oyster &amp; Champagne</h3><span class="dots" aria-hidden="true"></span><span class="price">28</span></div>
+            <p>Cold-water oyster, frozen mignonette, a single grape of finger lime. To begin, lightly.</p>
+            <span class="note">First movement</span>
+          </div>
+          <div class="course reveal">
+            <div class="course-lead"><h3>Hand-Dived Scallop</h3><span class="dots" aria-hidden="true"></span><span class="price">34</span></div>
+            <p>Seared rare, brown-butter dashi, charred leek ash, a whisper of yuzu kosho.</p>
+            <span class="note">From the coast</span>
+          </div>
+          <div class="course reveal">
+            <div class="course-lead"><h3>Aged Duck, Two Ways</h3><span class="dots" aria-hidden="true"></span><span class="price">46</span></div>
+            <p>21-day breast over embers; confit leg, cherry gastrique, bitter chocolate jus.</p>
+            <span class="note">The centerpiece</span>
+          </div>
+          <div class="course reveal">
+            <div class="course-lead"><h3>Black Truffle Risotto</h3><span class="dots" aria-hidden="true"></span><span class="price">42</span></div>
+            <p>Carnaroli, aged parmesan, Périgord truffle shaved without restraint, cultured butter.</p>
+            <span class="note">Vegetarian</span>
+          </div>
+          <div class="course reveal">
+            <div class="course-lead"><h3>The Cheese Trolley</h3><span class="dots" aria-hidden="true"></span><span class="price">26</span></div>
+            <p>A rolling selection at its peak — affineur&rsquo;s choice, walnut bread, quince.</p>
+            <span class="note">Before dessert</span>
+          </div>
+          <div class="course reveal">
+            <div class="course-lead"><h3>Burnt Honey &amp; Fig</h3><span class="dots" aria-hidden="true"></span><span class="price">22</span></div>
+            <p>Caramelized honey parfait, roasted black fig, brown-butter crumble, smoked salt.</p>
+            <span class="note">Final movement</span>
+          </div>
+        </div>
+        <div class="menu-foot reveal">
+          <p class="tasting">The full experience — <b>seven courses, $185</b> · with cellar pairing, <b>$120</b></p>
+          <a class="btn" href="#reserve">Reserve the table</a>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- EXPERIENCE -->
+  <section id="experience" aria-labelledby="exp-h">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <p class="eyebrow">The experience</p>
+        <h2 id="exp-h">More than a meal</h2>
+      </div>
+      <div class="exp-grid">
+        <article class="exp reveal">
+          <span class="num">I.</span>
+          <h3>The Cellar</h3>
+          <p>Four hundred references, an obsessive sommelier, and pairings that argue gently with each course. Corkage by arrangement for the bottle you&rsquo;ve been saving.</p>
+        </article>
+        <article class="exp reveal">
+          <span class="num">II.</span>
+          <h3>Chef&rsquo;s Counter</h3>
+          <p>Six seats facing the pass. Watch the brigade work in near silence and taste off-menu plates that never make the card.</p>
+        </article>
+        <article class="exp reveal">
+          <span class="num">III.</span>
+          <h3>Le Petit Salon</h3>
+          <p>A private room for ten — anniversaries, quiet deals, slow celebrations. Your own service, your own pace, your own playlist.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- GALLERY -->
+  <section id="gallery" aria-labelledby="gal-h">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <p class="eyebrow">The room</p>
+        <h2 id="gal-h">By candlelight</h2>
+      </div>
+      <div class="band reveal" role="list">
+        <figure role="listitem"><img alt="Intimate dining room lit by candles and warm pendant lights" src="https://images.unsplash.com/photo-1559339352-11d035aa65de?q=80&w=900&auto=format&fit=crop" loading="lazy" /></figure>
+        <figure role="listitem"><img alt="A glass of red wine held against soft light" src="https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?q=80&w=700&auto=format&fit=crop" loading="lazy" /></figure>
+        <figure role="listitem"><img alt="Chef plating a dish at the pass with tweezers" src="https://images.unsplash.com/photo-1577219491135-ce391730fb2c?q=80&w=700&auto=format&fit=crop" loading="lazy" /></figure>
+        <figure role="listitem"><img alt="A dessert of figs and honey on dark ceramic" src="https://images.unsplash.com/photo-1488477181946-6428a0291777?q=80&w=700&auto=format&fit=crop" loading="lazy" /></figure>
+        <figure role="listitem"><img alt="Bottles resting in a dim wine cellar" src="https://images.unsplash.com/photo-1506377247377-2a5b3b417ebb?q=80&w=700&auto=format&fit=crop" loading="lazy" /></figure>
+      </div>
+    </div>
+  </section>
+
+  <!-- RESERVATION / ORDER FORM -->
+  <div class="reserve">
+    <section id="reserve" aria-labelledby="res-h">
+      <div class="wrap reserve-grid">
+        <div class="res-info reveal">
+          <p class="eyebrow">Reservations</p>
+          <h2 id="res-h">Join us for<br>one evening.</h2>
+          <p class="lede" style="margin:1.2rem 0 1.8rem">A single seating each night. We hold a handful of tables for same-week requests — the rest book a month ahead.</p>
+          <div class="detail"><span class="k">Hours</span><span class="v">Wed – Sun, one seating<small>Doors 18:30 · last seating 20:30</small></span></div>
+          <div class="detail"><span class="k">Address</span><span class="v">14 Rue de l&rsquo;Ombre<small>Old Town · valet &amp; cloakroom</small></span></div>
+          <div class="detail"><span class="k">Enquiries</span><span class="v"><a href="mailto:reserve@maisonnoir.example">reserve@maisonnoir.example</a><small>+1 (555) 014-9090 · private events welcome</small></span></div>
+          <div class="detail"><span class="k">Dress</span><span class="v">Elegant<small>Smart attire appreciated</small></span></div>
+        </div>
+
+        <div class="reveal" id="book">
+          <form class="res" id="res-form" novalidate>
+            <h3>Request a reservation</h3>
+            <p class="sub">Share the details and we&rsquo;ll confirm your table by email, usually within the day.</p>
+            <div class="grid-2">
+              <div class="field">
+                <label for="rf-name">Full name</label>
+                <input id="rf-name" name="name" type="text" autocomplete="name" required placeholder="Your name" />
+              </div>
+              <div class="field">
+                <label for="rf-email">Email</label>
+                <input id="rf-email" name="email" type="email" autocomplete="email" required placeholder="you@email.com" />
+              </div>
+            </div>
+            <div class="grid-2">
+              <div class="field">
+                <label for="rf-date">Preferred date</label>
+                <input id="rf-date" name="date" type="date" />
+              </div>
+              <div class="field">
+                <label for="rf-guests">Guests</label>
+                <select id="rf-guests" name="guests">
+                  <option>Two</option>
+                  <option>Three</option>
+                  <option>Four</option>
+                  <option>Five – six</option>
+                  <option>Private salon (7–10)</option>
+                </select>
+              </div>
+            </div>
+            <div class="field">
+              <label for="rf-seating">Seating preference</label>
+              <select id="rf-seating" name="seating">
+                <option>Dining room</option>
+                <option>Chef&rsquo;s counter</option>
+                <option>Le Petit Salon (private)</option>
+                <option>No preference</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="rf-notes">Occasion or dietary notes</label>
+              <textarea id="rf-notes" name="notes" placeholder="Anniversary, allergies, a bottle you&rsquo;d like decanted…"></textarea>
+            </div>
+            <button class="btn" type="submit">Request reservation</button>
+            <p class="res-ok" id="res-ok" role="status">Received — thank you. We&rsquo;ll confirm your table by email shortly. (Demo form — nothing was sent.)</p>
+          </form>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- DOMAIN FLOURISH -->
+  <section class="domain" aria-labelledby="dom-h">
+    <div class="wrap">
+      <p class="eyebrow reveal" style="justify-content:center">Your house, your name</p>
+      <h2 id="dom-h" class="reveal" style="font-size:clamp(2rem,4.5vw,3.2rem);max-width:18ch;margin-inline:auto">Every detail carries your name — including the address bar.</h2>
+      <div class="bar reveal" role="img" aria-label="Browser address bar showing your-restaurant dot com on a secure connection">
+        <span class="lock" aria-hidden="true">🔒</span> <b>maisonnoir.com</b> <span class="pill">Your domain</span>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-grid">
+      <div>
+        <p class="fbrand">Maison<span>·</span>Noir</p>
+        <p style="margin-top:.6rem;max-width:38ch">A candle-lit room and a seasonal tasting menu. Forty seats, one service, by reservation.</p>
+      </div>
+      <div>
+        <p class="col-title">Visit</p>
+        <ul>
+          <li><a href="#menu">Menu</a></li>
+          <li><a href="#experience">Experience</a></li>
+          <li><a href="#gallery">Gallery</a></li>
+          <li><a href="#reserve">Reservations</a></li>
+        </ul>
+      </div>
+      <div>
+        <p class="col-title">Contact</p>
+        <ul>
+          <li><a href="mailto:reserve@maisonnoir.example">reserve@maisonnoir.example</a></li>
+          <li><a href="#reserve">+1 (555) 014-9090</a></li>
+          <li>14 Rue de l&rsquo;Ombre, Old Town</li>
+          <li><a href="#top">Instagram · Journal</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <span>© 2024 Maison Noir. A sample showcase site.</span>
+      <span>Crafted to order · your menu, your room, your domain.</span>
+    </div>
+  </div>
+</footer>
+
+<script type="module">
+"use strict";
+
+/* ----------------------------------------------------------------------------
+   Cinematic WebGL2 hero — raw inline shader, no external library.
+   A slow, candle-lit flowing field (layered domain-warped value noise + ember
+   drift). Gracefully no-ops to the CSS gradient (.hero::before) when WebGL2 is
+   unavailable or the visitor prefers reduced motion — so it works headless.
+---------------------------------------------------------------------------- */
+function startHero() {
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const canvas = document.getElementById("hero-gl");
+  if (!canvas) return;
+
+  // Bail to CSS fallback on reduced-motion or no WebGL2.
+  let gl = null;
+  try { gl = reduce ? null : canvas.getContext("webgl2", { antialias: false, alpha: true, powerPreference: "low-power" }); }
+  catch { gl = null; }
+  if (!gl) { canvas.style.display = "none"; return; }
+
+  const VERT = `#version 300 es
+  in vec2 p;
+  void main(){ gl_Position = vec4(p, 0.0, 1.0); }`;
+
+  const FRAG = `#version 300 es
+  precision highp float;
+  uniform vec2  uRes;
+  uniform float uT;
+  out vec4 fragColor;
+
+  // --- hash / value noise ---
+  float hash(vec2 p){
+    p = fract(p * vec2(123.34, 345.45));
+    p += dot(p, p + 34.345);
+    return fract(p.x * p.y);
+  }
+  float noise(vec2 x){
+    vec2 i = floor(x), f = fract(x);
+    float a = hash(i);
+    float b = hash(i + vec2(1.0, 0.0));
+    float c = hash(i + vec2(0.0, 1.0));
+    float d = hash(i + vec2(1.0, 1.0));
+    vec2 u = f * f * (3.0 - 2.0 * f);
+    return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+  }
+  float fbm(vec2 p){
+    float v = 0.0, a = 0.5;
+    mat2 m = mat2(1.6, 1.2, -1.2, 1.6);
+    for(int i = 0; i < 5; i++){ v += a * noise(p); p = m * p; a *= 0.5; }
+    return v;
+  }
+
+  void main(){
+    vec2 uv = (gl_FragCoord.xy - 0.5 * uRes) / uRes.y;
+    float t = uT * 0.045;
+
+    // domain-warped fbm — slow drifting "smoke" / candlelight
+    vec2 q = vec2(fbm(uv * 1.4 + vec2(0.0, t)),
+                  fbm(uv * 1.4 + vec2(5.2, -t * 0.8)));
+    vec2 r = vec2(fbm(uv * 1.7 + 1.8 * q + vec2(1.7, 9.2) + t * 0.4),
+                  fbm(uv * 1.7 + 1.8 * q + vec2(8.3, 2.8) - t * 0.3));
+    float f = fbm(uv * 1.9 + 2.0 * r);
+
+    // candle-lit palette: deep wine -> ember gold, over near-black
+    vec3 base  = vec3(0.043, 0.039, 0.047);
+    vec3 wine  = vec3(0.34, 0.10, 0.14);
+    vec3 gold  = vec3(0.79, 0.62, 0.34);
+
+    vec3 col = base;
+    col = mix(col, wine, smoothstep(0.15, 0.85, f));
+    col = mix(col, gold, pow(clamp(length(r), 0.0, 1.0), 2.2) * 0.55);
+
+    // warm glow drifting from upper-right (where the hero copy is darkest)
+    float glow = smoothstep(0.9, 0.0, length(uv - vec2(0.55, 0.35)));
+    col += gold * glow * 0.14;
+
+    // a few slow embers
+    float em = pow(noise(uv * 7.0 + vec2(0.0, -uT * 0.12)), 18.0);
+    col += gold * em * 1.3;
+
+    // gentle vignette + filmic-ish lift
+    float vig = smoothstep(1.25, 0.2, length(uv));
+    col *= mix(0.55, 1.0, vig);
+    col = col / (col + 0.85);              // soft tonemap
+    col = pow(col, vec3(0.92));            // mild gamma
+
+    fragColor = vec4(col, 1.0);
+  }`;
+
+  function compile(type, src) {
+    const s = gl.createShader(type);
+    gl.shaderSource(s, src);
+    gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+      console.warn("hero shader:", gl.getShaderInfoLog(s));
+      gl.deleteShader(s); return null;
+    }
+    return s;
+  }
+
+  const vs = compile(gl.VERTEX_SHADER, VERT);
+  const fs = compile(gl.FRAGMENT_SHADER, FRAG);
+  if (!vs || !fs) { canvas.style.display = "none"; return; }
+
+  const prog = gl.createProgram();
+  gl.attachShader(prog, vs); gl.attachShader(prog, fs);
+  gl.bindAttribLocation(prog, 0, "p");
+  gl.linkProgram(prog);
+  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+    console.warn("hero link:", gl.getProgramInfoLog(prog));
+    canvas.style.display = "none"; return;
+  }
+  gl.useProgram(prog);
+
+  // fullscreen triangle
+  const vao = gl.createVertexArray();
+  gl.bindVertexArray(vao);
+  const buf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(0);
+  gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+
+  const uRes = gl.getUniformLocation(prog, "uRes");
+  const uT = gl.getUniformLocation(prog, "uT");
+
+  const DPR_CAP = 1.5; // keep the fragment cost sane on retina
+  function resize() {
+    const dpr = Math.min(window.devicePixelRatio || 1, DPR_CAP);
+    const w = Math.max(1, Math.floor(canvas.clientWidth * dpr));
+    const h = Math.max(1, Math.floor(canvas.clientHeight * dpr));
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width = w; canvas.height = h;
+      gl.viewport(0, 0, w, h);
+    }
+    gl.uniform2f(uRes, w, h);
+  }
+  window.addEventListener("resize", resize, { passive: true });
+  resize();
+
+  const start = performance.now();
+  let running = true, raf = 0;
+
+  // pause when the hero is off-screen (saves battery)
+  const hero = document.querySelector(".hero");
+  if (hero && "IntersectionObserver" in window) {
+    new IntersectionObserver((ents) => {
+      const vis = ents[0].isIntersecting;
+      if (vis && !running) { running = true; raf = requestAnimationFrame(frame); }
+      running = vis;
+    }, { threshold: 0.01 }).observe(hero);
+  }
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden && running && !raf) raf = requestAnimationFrame(frame);
+  });
+
+  function frame() {
+    raf = 0;
+    if (!running || document.hidden) return;
+    resize();
+    gl.uniform1f(uT, (performance.now() - start) / 1000);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    raf = requestAnimationFrame(frame);
+  }
+  raf = requestAnimationFrame(frame);
+}
+
+/* ---- shared UI: sticky nav, scroll reveal, demo form ---- */
+function startUI() {
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  const nav = document.getElementById("topnav");
+  const onScroll = () => nav.classList.toggle("scrolled", window.scrollY > 12);
+  onScroll();
+  window.addEventListener("scroll", onScroll, { passive: true });
+
+  const reveals = document.querySelectorAll(".reveal");
+  if (reduce || !("IntersectionObserver" in window)) {
+    reveals.forEach((el) => el.classList.add("in"));
+  } else {
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((e, i) => {
+        if (e.isIntersecting) {
+          // subtle stagger for grouped items
+          e.target.style.transitionDelay = Math.min(i * 40, 160) + "ms";
+          e.target.classList.add("in");
+          io.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.1, rootMargin: "0px 0px -6% 0px" });
+    reveals.forEach((el) => io.observe(el));
+  }
+
+  const form = document.getElementById("res-form");
+  const ok = document.getElementById("res-ok");
+  if (form) {
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const name = form.querySelector("#rf-name");
+      const email = form.querySelector("#rf-email");
+      if (!name.value.trim() || !email.value.trim()) {
+        (!name.value.trim() ? name : email).focus();
+        return;
+      }
+      ok.classList.add("show");
+      form.querySelector("button").textContent = "Reservation requested ✓";
+      ok.focus?.();
+    });
+  }
+}
+
+startUI();
+startHero();
+</script>
+</body>
+</html>

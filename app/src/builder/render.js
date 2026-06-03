@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { escapeHtml } from '../util/html.js';
 import { designToCss } from '../design/css.js';
 import { googleFontsHref } from '../design/spec.js';
+import { leadFormHtml, catalogueHtml, orderFormHtml, heroCanvasHtml, heroScriptHtml } from '../design/tier.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const THEME_DIR = resolve(here, '..', '..', 'site', 'themes');
@@ -59,12 +60,18 @@ export async function renderContract(contract, theme = 'editorial', { cssHref = 
 
 // Token-driven render: same content tokens as renderContract, but the look comes from the DesignSpec
 // (generated CSS + Google-Fonts link). Returns { html, css } so writeSite can write the generated CSS.
-export async function renderSiteV3(contract, design, { images = [] } = {}) {
+export async function renderSiteV3(contract, design, { images = [], tier = 'starter' } = {}) {
   const tpl = await readFile(resolve(THEME_DIR, 'v3', 'template.html'), 'utf8');
   const c = contract;
   const imgs = (Array.isArray(images) ? images : []).filter(Boolean);
   const hero = imgs[0] || null;
   const galleryImgs = (imgs.length > 1 ? imgs.slice(1) : imgs).slice(0, 6);
+  // Tier feature slots (Phase D). STARTER leaves every one of these '' → the template renders exactly
+  // as before. Pro gets the lead-capture form; Premium additionally gets the WebGL hero (canvas +
+  // inline module), a catalogue grid, and an order/reservation form. The builders are defensive and
+  // escape every value; designToCss is told the tier so the matching richness CSS is appended.
+  const isPro = tier === 'pro';
+  const isPremium = tier === 'premium';
   const map = {
     shopName: e(c.shopName), eyebrow: e(c.eyebrow || ''), tagline: e(c.tagline),
     cssHref: './theme.css', fontsHref: e(googleFontsHref(design.fonts)), layout: e(design.layout),
@@ -77,6 +84,12 @@ export async function renderSiteV3(contract, design, { images = [] } = {}) {
     reviewsHtml: (c.reviewHighlights || []).map((r) => `<blockquote>${e(r.quote)}${r.author ? `<cite>${e(r.author)}</cite>` : ''}</blockquote>`).join(''),
     galleryHtml: galleryImgs.length ? galleryImgs.map((src, i) => `<div class="tile"><img src="${e(src)}" alt="${e(c.galleryQueries[i] || c.shopName)}" loading="lazy"></div>`).join('') : c.galleryQueries.slice(0, 3).map((q) => `<div class="tile"><span class="cap">${e(q)}</span></div>`).join(''),
     contactHtml: `${c.contact.addressLines.map((l) => `<div>${e(l)}</div>`).join('')}${c.contact.phone ? `<div><a href="tel:${e(c.contact.phone)}">${e(c.contact.phone)}</a></div>` : ''}`,
+    // Tier slots — the builders return '' for tiers that don't get the feature (so Starter is unchanged).
+    heroCanvasHtml: isPremium ? heroCanvasHtml() : '',
+    heroScriptHtml: isPremium ? heroScriptHtml(design) : '',
+    catalogueHtml: isPremium ? catalogueHtml(c) : '',
+    leadFormHtml: isPro || isPremium ? leadFormHtml(c) : '',
+    orderFormHtml: isPremium ? orderFormHtml(c) : '',
   };
-  return { html: fill(tpl, map), css: designToCss(design) };
+  return { html: fill(tpl, map), css: designToCss(design, { tier }) };
 }

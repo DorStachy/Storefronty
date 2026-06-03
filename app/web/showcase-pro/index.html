@@ -1,0 +1,565 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Marigold Kitchen — Seasonal café & bakery</title>
+<meta name="description" content="Marigold Kitchen is a sunlit neighborhood café and bakery serving slow mornings, seasonal plates, and honest coffee. Book a table or stop by." />
+<meta name="theme-color" content="#fbf6ec" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --paper:#fbf6ec;        /* warm sunlit paper */
+    --paper-2:#f4ead6;      /* deeper cream */
+    --ink:#2c2118;          /* roasted brown-black */
+    --ink-soft:#5f5346;     /* muted text */
+    --marigold:#e8973a;     /* the namesake orange */
+    --marigold-deep:#c9742a;
+    --olive:#6f7a4f;        /* herb accent */
+    --blush:#e9c7b0;        /* peach surface */
+    --line:rgba(44,33,24,.12);
+    --shadow:0 1px 2px rgba(44,33,24,.06), 0 18px 40px -22px rgba(44,33,24,.35);
+    --r:18px;
+    --maxw:1140px;
+    --ease:cubic-bezier(.22,.61,.36,1);
+  }
+  *,*::before,*::after{ box-sizing:border-box; }
+  html{ scroll-behavior:smooth; -webkit-text-size-adjust:100%; }
+  body{
+    margin:0; background:var(--paper); color:var(--ink);
+    font-family:"DM Sans",system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+    font-size:clamp(16px,1.05vw,18px); line-height:1.65; overflow-x:hidden;
+    -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+  }
+  h1,h2,h3{ font-family:"Fraunces",Georgia,serif; font-weight:500; line-height:1.06; letter-spacing:-.01em; margin:0; }
+  a{ color:inherit; }
+  img{ display:block; max-width:100%; }
+  .wrap{ width:100%; max-width:var(--maxw); margin-inline:auto; padding-inline:clamp(20px,5vw,40px); }
+  .eyebrow{
+    font-size:.74rem; letter-spacing:.22em; text-transform:uppercase; font-weight:600;
+    color:var(--marigold-deep); margin:0 0 .9rem;
+  }
+  .eyebrow::before{ content:"❋"; margin-right:.55em; color:var(--marigold); font-size:.85em; }
+  .lede{ color:var(--ink-soft); font-size:1.08rem; max-width:54ch; }
+
+  /* ---- focus & buttons ---- */
+  a:focus-visible,button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{
+    outline:2.5px solid var(--marigold-deep); outline-offset:3px; border-radius:6px;
+  }
+  .btn{
+    --bg:var(--ink); --fg:var(--paper);
+    display:inline-flex; align-items:center; gap:.55rem; cursor:pointer;
+    font-family:inherit; font-weight:600; font-size:.96rem; text-decoration:none;
+    padding:.85rem 1.55rem; border-radius:999px; border:1px solid transparent;
+    background:var(--bg); color:var(--fg); transition:transform .25s var(--ease), box-shadow .25s var(--ease), background .25s;
+  }
+  .btn:hover{ transform:translateY(-2px); box-shadow:0 12px 26px -12px rgba(44,33,24,.5); }
+  .btn--warm{ --bg:var(--marigold); --fg:#2a1c0d; }
+  .btn--warm:hover{ background:var(--marigold-deep); }
+  .btn--ghost{ --bg:transparent; --fg:var(--ink); border-color:var(--line); }
+  .btn--ghost:hover{ background:var(--paper-2); }
+
+  /* ---- header ---- */
+  header.nav{
+    position:sticky; top:0; z-index:50;
+    background:color-mix(in srgb, var(--paper) 86%, transparent);
+    backdrop-filter:saturate(140%) blur(10px);
+    border-bottom:1px solid transparent; transition:border-color .3s, background .3s;
+  }
+  header.nav.scrolled{ border-bottom-color:var(--line); }
+  .nav-in{ display:flex; align-items:center; justify-content:space-between; gap:1rem; height:68px; }
+  .brand{ display:flex; align-items:center; gap:.6rem; font-family:"Fraunces",serif; font-size:1.28rem; font-weight:600; text-decoration:none; letter-spacing:-.01em; }
+  .brand .mk{ width:34px; height:34px; border-radius:10px; display:grid; place-items:center; background:radial-gradient(circle at 30% 25%, #ffd27a, var(--marigold) 70%); color:#3a2510; font-weight:700; box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.4); }
+  nav.links{ display:flex; align-items:center; gap:1.6rem; }
+  nav.links a{ text-decoration:none; font-weight:500; font-size:.95rem; color:var(--ink-soft); transition:color .2s; }
+  nav.links a:hover{ color:var(--ink); }
+  .nav-cta{ display:inline-flex; }
+  @media (max-width:780px){ nav.links a:not(.nav-cta){ display:none; } }
+
+  /* ---- hero ---- */
+  .hero{ position:relative; padding:clamp(3rem,7vw,5.5rem) 0 clamp(3rem,6vw,5rem); }
+  .hero-grid{ display:grid; grid-template-columns:1.05fr .95fr; gap:clamp(2rem,4vw,3.5rem); align-items:center; }
+  .hero h1{ font-size:clamp(2.6rem,6.4vw,4.6rem); font-weight:600; letter-spacing:-.025em; }
+  .hero h1 em{ font-style:italic; color:var(--marigold-deep); }
+  .hero .lede{ margin:1.4rem 0 2rem; font-size:1.15rem; }
+  .hero-cta{ display:flex; flex-wrap:wrap; gap:.85rem; align-items:center; }
+  .hero-note{ font-size:.86rem; color:var(--ink-soft); margin-top:1.6rem; display:flex; align-items:center; gap:.55rem; }
+  .stars{ color:var(--marigold); letter-spacing:.1em; }
+  .hero-media{ position:relative; }
+  .hero-photo{
+    aspect-ratio:4/5; width:100%; object-fit:cover; border-radius:26px; box-shadow:var(--shadow);
+    background:linear-gradient(160deg,#f6ddbd,#e9b27e);
+  }
+  .hero-badge{
+    position:absolute; left:-18px; bottom:26px; background:var(--paper); border:1px solid var(--line);
+    border-radius:16px; padding:.85rem 1.05rem; box-shadow:var(--shadow); display:flex; gap:.7rem; align-items:center; max-width:230px;
+  }
+  .hero-badge .ico{ width:38px; height:38px; border-radius:10px; background:var(--blush); display:grid; place-items:center; flex:none; }
+  .hero-badge strong{ font-family:"Fraunces",serif; display:block; font-size:1.02rem; }
+  .hero-badge span{ font-size:.8rem; color:var(--ink-soft); }
+  @media (max-width:880px){
+    .hero-grid{ grid-template-columns:1fr; }
+    .hero-media{ order:-1; max-width:460px; }
+    .hero-badge{ left:0; }
+  }
+
+  /* ---- marquee strip ---- */
+  .strip{ border-block:1px solid var(--line); background:var(--paper-2); overflow:hidden; }
+  .strip-track{ display:flex; gap:3rem; white-space:nowrap; padding:.9rem 0; font-family:"Fraunces",serif; font-style:italic; color:var(--ink-soft); font-size:1.05rem; }
+  .strip-track span::after{ content:"·"; margin-left:3rem; color:var(--marigold); font-style:normal; }
+  @media (prefers-reduced-motion:no-preference){
+    .strip-track{ width:max-content; animation:slide 34s linear infinite; }
+    @keyframes slide{ to{ transform:translateX(-50%); } }
+  }
+
+  /* ---- generic section ---- */
+  section{ padding:clamp(3.5rem,8vw,6rem) 0; }
+  .section-head{ max-width:62ch; margin-bottom:clamp(2rem,4vw,3rem); }
+  .section-head h2{ font-size:clamp(2rem,4.2vw,3.1rem); }
+  .section-head p{ margin-top:1rem; }
+
+  /* ---- story ---- */
+  .story-grid{ display:grid; grid-template-columns:1fr 1fr; gap:clamp(2rem,5vw,4rem); align-items:center; }
+  .story-photos{ display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+  .story-photos img{ border-radius:16px; box-shadow:var(--shadow); aspect-ratio:3/4; object-fit:cover; background:var(--blush); }
+  .story-photos img:nth-child(1){ margin-top:2.2rem; }
+  .stat-row{ display:flex; gap:2.2rem; margin-top:2rem; flex-wrap:wrap; }
+  .stat b{ font-family:"Fraunces",serif; font-size:2rem; display:block; color:var(--marigold-deep); }
+  .stat span{ font-size:.85rem; color:var(--ink-soft); }
+  @media (max-width:880px){ .story-grid{ grid-template-columns:1fr; } }
+
+  /* ---- menu highlights (tilt cards) ---- */
+  .menu-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:1.4rem; }
+  @media (max-width:880px){ .menu-grid{ grid-template-columns:1fr; } }
+  .tilt{ perspective:1000px; }
+  .dish{
+    position:relative; background:var(--paper); border:1px solid var(--line); border-radius:var(--r);
+    overflow:hidden; box-shadow:var(--shadow); transform-style:preserve-3d;
+    transition:transform .4s var(--ease), box-shadow .4s var(--ease);
+    will-change:transform;
+  }
+  .dish:hover{ box-shadow:0 26px 50px -24px rgba(44,33,24,.55); }
+  .dish .ph{ aspect-ratio:5/4; width:100%; object-fit:cover; background:linear-gradient(150deg,#f3d9b6,#e7a86f); transform:translateZ(28px); }
+  .dish .body{ padding:1.2rem 1.3rem 1.5rem; transform:translateZ(45px); }
+  .dish .row{ display:flex; justify-content:space-between; align-items:baseline; gap:1rem; }
+  .dish h3{ font-size:1.25rem; }
+  .dish .price{ font-family:"Fraunces",serif; font-weight:600; color:var(--marigold-deep); font-size:1.1rem; }
+  .dish p{ margin:.55rem 0 0; font-size:.92rem; color:var(--ink-soft); }
+  .tag{ display:inline-block; margin-top:.9rem; font-size:.72rem; letter-spacing:.08em; text-transform:uppercase; color:var(--olive); border:1px solid color-mix(in srgb,var(--olive) 40%,transparent); padding:.2rem .6rem; border-radius:999px; }
+
+  /* ---- gallery ---- */
+  .gallery{ display:grid; grid-template-columns:repeat(4,1fr); grid-auto-rows:200px; gap:1rem; }
+  .gallery figure{ margin:0; overflow:hidden; border-radius:16px; box-shadow:var(--shadow); }
+  .gallery img{ width:100%; height:100%; object-fit:cover; transition:transform .8s var(--ease); background:var(--blush); }
+  @media (prefers-reduced-motion:no-preference){ .gallery figure:hover img{ transform:scale(1.06); } }
+  .gallery .tall{ grid-row:span 2; }
+  .gallery .wide{ grid-column:span 2; }
+  @media (max-width:880px){
+    .gallery{ grid-template-columns:repeat(2,1fr); grid-auto-rows:160px; }
+    .gallery .wide{ grid-column:span 2; }
+    .gallery .tall{ grid-row:span 1; }
+  }
+
+  /* ---- reviews ---- */
+  .reviews{ background:var(--paper-2); }
+  .quote-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:1.4rem; }
+  @media (max-width:880px){ .quote-grid{ grid-template-columns:1fr; } }
+  .quote{ background:var(--paper); border:1px solid var(--line); border-radius:var(--r); padding:1.6rem 1.5rem; box-shadow:var(--shadow); display:flex; flex-direction:column; gap:.9rem; }
+  .quote .stars{ font-size:1rem; }
+  .quote blockquote{ margin:0; font-family:"Fraunces",serif; font-size:1.12rem; line-height:1.45; }
+  .quote .who{ display:flex; align-items:center; gap:.7rem; margin-top:auto; }
+  .quote .av{ width:38px; height:38px; border-radius:50%; background:radial-gradient(circle at 30% 25%, #ffd9a3, var(--marigold)); display:grid; place-items:center; font-weight:700; color:#3a2510; font-size:.9rem; flex:none; }
+  .quote .who b{ font-size:.92rem; display:block; }
+  .quote .who span{ font-size:.8rem; color:var(--ink-soft); }
+
+  /* ---- hours + contact + form ---- */
+  .contact-grid{ display:grid; grid-template-columns:.9fr 1.1fr; gap:clamp(2rem,4vw,3.5rem); align-items:start; }
+  @media (max-width:880px){ .contact-grid{ grid-template-columns:1fr; } }
+  .hours{ list-style:none; margin:1.5rem 0 0; padding:0; }
+  .hours li{ display:flex; justify-content:space-between; padding:.7rem 0; border-bottom:1px dashed var(--line); font-size:.96rem; }
+  .hours li.today{ color:var(--marigold-deep); font-weight:600; }
+  .hours li span:first-child{ color:var(--ink-soft); }
+  .info-line{ display:flex; gap:.7rem; align-items:flex-start; margin-top:1.3rem; font-size:.96rem; }
+  .info-line .ico{ width:34px;height:34px;border-radius:9px;background:var(--blush);display:grid;place-items:center;flex:none; }
+
+  form.book{ background:var(--paper); border:1px solid var(--line); border-radius:22px; padding:clamp(1.5rem,3vw,2.2rem); box-shadow:var(--shadow); }
+  form.book h3{ font-size:1.6rem; }
+  form.book p.sub{ color:var(--ink-soft); margin:.5rem 0 1.5rem; font-size:.95rem; }
+  .field{ margin-bottom:1.1rem; }
+  .field label{ display:block; font-size:.82rem; font-weight:600; letter-spacing:.02em; margin-bottom:.4rem; color:var(--ink-soft); }
+  .field input,.field select,.field textarea{
+    width:100%; font-family:inherit; font-size:1rem; color:var(--ink);
+    background:var(--paper-2); border:1px solid var(--line); border-radius:12px; padding:.8rem .95rem; transition:border-color .2s, background .2s;
+  }
+  .field input:focus,.field select:focus,.field textarea:focus{ background:var(--paper); border-color:var(--marigold); }
+  .field textarea{ resize:vertical; min-height:96px; }
+  .two-col{ display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+  @media (max-width:520px){ .two-col{ grid-template-columns:1fr; } }
+  form.book button{ width:100%; justify-content:center; margin-top:.4rem; }
+  .form-ok{ display:none; margin-top:1rem; padding:.9rem 1.1rem; border-radius:12px; background:color-mix(in srgb,var(--olive) 16%, var(--paper)); border:1px solid color-mix(in srgb,var(--olive) 45%,transparent); font-size:.92rem; color:#3e4a26; }
+  .form-ok.show{ display:block; }
+
+  /* ---- footer ---- */
+  footer{ background:var(--ink); color:#e9ddcb; padding:clamp(3rem,6vw,4.5rem) 0 2rem; }
+  .foot-grid{ display:grid; grid-template-columns:1.4fr 1fr 1fr; gap:2rem; }
+  @media (max-width:780px){ .foot-grid{ grid-template-columns:1fr; gap:1.6rem; } }
+  footer h4{ font-family:"Fraunces",serif; font-size:1.4rem; margin:0 0 .4rem; color:#fff; }
+  footer p,footer a{ color:#c4b49c; font-size:.92rem; text-decoration:none; }
+  footer a:hover{ color:#fff; }
+  footer .col-title{ font-size:.74rem; letter-spacing:.18em; text-transform:uppercase; color:var(--marigold); margin:0 0 .9rem; }
+  footer ul{ list-style:none; margin:0; padding:0; display:grid; gap:.5rem; }
+  .foot-bottom{ margin-top:2.5rem; padding-top:1.5rem; border-top:1px solid rgba(255,255,255,.12); display:flex; justify-content:space-between; flex-wrap:wrap; gap:.6rem; font-size:.82rem; color:#9c8d77; }
+
+  /* ---- scroll reveal ---- */
+  .reveal{ opacity:0; transform:translateY(22px); }
+  @media (prefers-reduced-motion:no-preference){
+    .reveal{ transition:opacity .8s var(--ease), transform .8s var(--ease); }
+    .reveal.in{ opacity:1; transform:none; }
+  }
+  @media (prefers-reduced-motion:reduce){ .reveal{ opacity:1; transform:none; } }
+</style>
+</head>
+<body>
+<a class="skip" href="#main" style="position:absolute;left:-999px;top:auto;background:var(--ink);color:#fff;padding:.6rem 1rem;border-radius:8px;z-index:99;">Skip to content</a>
+
+<header class="nav" id="topnav">
+  <div class="wrap nav-in">
+    <a class="brand" href="#top" aria-label="Marigold Kitchen home">
+      <span class="mk" aria-hidden="true">M</span> Marigold Kitchen
+    </a>
+    <nav class="links" aria-label="Primary">
+      <a href="#story">Our story</a>
+      <a href="#menu">Menu</a>
+      <a href="#gallery">Gallery</a>
+      <a href="#visit">Visit</a>
+      <a class="btn btn--warm nav-cta" href="#book">Book a table</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+  <span id="top"></span>
+  <!-- HERO -->
+  <section class="hero" aria-labelledby="hero-h">
+    <div class="wrap hero-grid">
+      <div class="hero-copy reveal">
+        <p class="eyebrow">Seasonal café &amp; bakery · est. 2014</p>
+        <h1 id="hero-h">Slow mornings,<br><em>sunlit</em> plates.</h1>
+        <p class="lede">A neighborhood kitchen where the bread is baked at dawn, the coffee is roasted up the road, and the menu follows whatever the farmers bring on Tuesday.</p>
+        <div class="hero-cta">
+          <a class="btn btn--warm" href="#book">Book a table</a>
+          <a class="btn btn--ghost" href="#menu">See the menu</a>
+        </div>
+        <p class="hero-note"><span class="stars" aria-hidden="true">★★★★★</span> Rated 4.9 by 600+ neighbors</p>
+      </div>
+      <div class="hero-media reveal">
+        <img class="hero-photo" alt="A flat white and a slice of citrus olive-oil cake on a marble café table by a sunlit window"
+          src="https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?q=80&w=1200&auto=format&fit=crop" loading="eager" />
+        <div class="hero-badge">
+          <span class="ico" aria-hidden="true">🥐</span>
+          <div>
+            <strong>Fresh at 7am</strong>
+            <span>Croissants, sourdough &amp; morning buns, daily.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- MARQUEE -->
+  <div class="strip" aria-hidden="true">
+    <div class="strip-track">
+      <span>Stone-ground flour</span><span>Single-origin espresso</span><span>Garden herbs</span><span>Slow ferment</span><span>Local eggs</span><span>Seasonal fruit</span>
+      <span>Stone-ground flour</span><span>Single-origin espresso</span><span>Garden herbs</span><span>Slow ferment</span><span>Local eggs</span><span>Seasonal fruit</span>
+    </div>
+  </div>
+
+  <!-- STORY -->
+  <section id="story" aria-labelledby="story-h">
+    <div class="wrap story-grid">
+      <div class="story-photos reveal">
+        <img alt="Baker shaping sourdough loaves on a floured wooden bench"
+          src="https://images.unsplash.com/photo-1509440159596-0249088772ff?q=80&w=800&auto=format&fit=crop" loading="lazy" />
+        <img alt="Warm interior of the café with hanging plants and morning light"
+          src="https://images.unsplash.com/photo-1554118811-1e0d58224f24?q=80&w=800&auto=format&fit=crop" loading="lazy" />
+      </div>
+      <div class="reveal">
+        <p class="eyebrow">Our story</p>
+        <h2 id="story-h">It started with one stubborn sourdough starter.</h2>
+        <p class="lede" style="margin-top:1rem">Marigold began as a Sunday market stall — one oven, one battered espresso machine, and a line that wrapped the corner. A decade on, we still bake everything in-house and still know most names that walk through the door.</p>
+        <p style="margin-top:1rem;color:var(--ink-soft)">We cook simply and seasonally: produce from growers we shake hands with, coffee from a roaster two streets over, and a pastry case that changes with the weather. Come for the cardamom buns; stay for the slow afternoon.</p>
+        <div class="stat-row">
+          <div class="stat"><b>10 yrs</b><span>baking on the corner</span></div>
+          <div class="stat"><b>30+</b><span>local growers &amp; makers</span></div>
+          <div class="stat"><b>4.9★</b><span>across 600 reviews</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- MENU HIGHLIGHTS (tilt cards) -->
+  <section id="menu" aria-labelledby="menu-h">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <p class="eyebrow">From the kitchen</p>
+        <h2 id="menu-h">A few things we&rsquo;re proud of</h2>
+        <p>The full menu shifts with the season — here&rsquo;s what neighbors keep coming back for.</p>
+      </div>
+      <div class="menu-grid">
+        <div class="tilt reveal">
+          <article class="dish" data-tilt>
+            <img class="ph" alt="Soft-scrambled eggs on toasted sourdough with garden herbs"
+              src="https://images.unsplash.com/photo-1525351484163-7529414344d8?q=80&w=800&auto=format&fit=crop" loading="lazy" />
+            <div class="body">
+              <div class="row"><h3>Garden Toast</h3><span class="price">$14</span></div>
+              <p>Soft-scramble, whipped feta, herbs from the back step, chili crisp on the side.</p>
+              <span class="tag">Vegetarian</span>
+            </div>
+          </article>
+        </div>
+        <div class="tilt reveal">
+          <article class="dish" data-tilt>
+            <img class="ph" alt="Golden buttermilk pancakes topped with roasted seasonal stone fruit"
+              src="https://images.unsplash.com/photo-1567620905732-2d1ec7ab7445?q=80&w=800&auto=format&fit=crop" loading="lazy" />
+            <div class="body">
+              <div class="row"><h3>Stone-Fruit Stack</h3><span class="price">$13</span></div>
+              <p>Buttermilk pancakes, roasted apricots, brown-butter maple, toasted almond.</p>
+              <span class="tag">Weekend favourite</span>
+            </div>
+          </article>
+        </div>
+        <div class="tilt reveal">
+          <article class="dish" data-tilt>
+            <img class="ph" alt="A rosetta latte in a ceramic cup beside a flaky cardamom bun"
+              src="https://images.unsplash.com/photo-1517256064527-09c73fc73e38?q=80&w=800&auto=format&fit=crop" loading="lazy" />
+            <div class="body">
+              <div class="row"><h3>Cardamom Bun &amp; Latte</h3><span class="price">$9</span></div>
+              <p>Our signature laminated bun with a rosetta latte, single-origin and just-pulled.</p>
+              <span class="tag">Baked daily</span>
+            </div>
+          </article>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- GALLERY -->
+  <section id="gallery" aria-labelledby="gallery-h">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <p class="eyebrow">In the room</p>
+        <h2 id="gallery-h">A little of the everyday</h2>
+      </div>
+      <div class="gallery reveal" role="list">
+        <figure class="tall" role="listitem"><img alt="Latte being poured with leaf latte art" src="https://images.unsplash.com/photo-1461023058943-07fcbe16d735?q=80&w=700&auto=format&fit=crop" loading="lazy" /></figure>
+        <figure class="wide" role="listitem"><img alt="Pastry case full of croissants and morning buns" src="https://images.unsplash.com/photo-1568254183919-78a4f43a2877?q=80&w=900&auto=format&fit=crop" loading="lazy" /></figure>
+        <figure role="listitem"><img alt="Bunch of fresh herbs on a wooden board" src="https://images.unsplash.com/photo-1466637574441-749b8f19452f?q=80&w=600&auto=format&fit=crop" loading="lazy" /></figure>
+        <figure role="listitem"><img alt="Cup of black coffee on a saucer" src="https://images.unsplash.com/photo-1494314671902-399b18174975?q=80&w=600&auto=format&fit=crop" loading="lazy" /></figure>
+        <figure class="wide" role="listitem"><img alt="Friends sharing brunch plates at a sunlit table" src="https://images.unsplash.com/photo-1559925393-8be0ec4767c8?q=80&w=900&auto=format&fit=crop" loading="lazy" /></figure>
+        <figure role="listitem"><img alt="Slice of citrus olive-oil cake on a plate" src="https://images.unsplash.com/photo-1488477181946-6428a0291777?q=80&w=600&auto=format&fit=crop" loading="lazy" /></figure>
+      </div>
+    </div>
+  </section>
+
+  <!-- REVIEWS -->
+  <section class="reviews" id="reviews" aria-labelledby="rev-h">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <p class="eyebrow">Kind words</p>
+        <h2 id="rev-h">Loved by the neighborhood</h2>
+      </div>
+      <div class="quote-grid">
+        <figure class="quote reveal">
+          <div class="stars" aria-label="5 out of 5 stars">★★★★★</div>
+          <blockquote>&ldquo;The cardamom buns are dangerous. I&rsquo;ve rearranged my whole week around being here at opening.&rdquo;</blockquote>
+          <figcaption class="who"><span class="av" aria-hidden="true">JL</span><div><b>Jules L.</b><span>Local regular</span></div></figcaption>
+        </figure>
+        <figure class="quote reveal">
+          <div class="stars" aria-label="5 out of 5 stars">★★★★★</div>
+          <blockquote>&ldquo;Genuinely the warmest little room in the city. The staff remember your order and your dog&rsquo;s name.&rdquo;</blockquote>
+          <figcaption class="who"><span class="av" aria-hidden="true">PR</span><div><b>Priya R.</b><span>Sunday brunch crowd</span></div></figcaption>
+        </figure>
+        <figure class="quote reveal">
+          <div class="stars" aria-label="5 out of 5 stars">★★★★★</div>
+          <blockquote>&ldquo;Coffee that actually tastes like something, pastry that ruins you for anywhere else. Five stars, every time.&rdquo;</blockquote>
+          <figcaption class="who"><span class="av" aria-hidden="true">DM</span><div><b>Devon M.</b><span>Coffee snob, reformed</span></div></figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <!-- VISIT: HOURS + CONTACT + FORM -->
+  <section id="visit" aria-labelledby="visit-h">
+    <div class="wrap contact-grid">
+      <div class="reveal">
+        <p class="eyebrow">Find us</p>
+        <h2 id="visit-h">Come say hello</h2>
+        <p class="lede" style="margin-top:1rem">We&rsquo;re on the sunny corner of Linden &amp; 4th. Walk-ins always welcome; tables for four or more, give us a shout below.</p>
+        <ul class="hours" id="hours" aria-label="Opening hours">
+          <li><span>Monday</span><span>7:00 – 15:00</span></li>
+          <li><span>Tuesday</span><span>7:00 – 15:00</span></li>
+          <li><span>Wednesday</span><span>7:00 – 15:00</span></li>
+          <li><span>Thursday</span><span>7:00 – 16:00</span></li>
+          <li><span>Friday</span><span>7:00 – 16:00</span></li>
+          <li><span>Saturday</span><span>8:00 – 16:00</span></li>
+          <li><span>Sunday</span><span>8:00 – 14:00</span></li>
+        </ul>
+        <div class="info-line"><span class="ico" aria-hidden="true">📍</span><div>128 Linden Avenue, corner of 4th<br><span style="color:var(--ink-soft)">Street parking &amp; bike racks out front</span></div></div>
+        <div class="info-line"><span class="ico" aria-hidden="true">✉️</span><div><a href="mailto:hello@marigoldkitchen.example">hello@marigoldkitchen.example</a> · (555) 014-2280</div></div>
+      </div>
+
+      <!-- LEAD-CAPTURE FORM -->
+      <div id="book" class="reveal">
+        <form class="book" id="book-form" novalidate>
+          <h3>Book a table or say hi</h3>
+          <p class="sub">Tell us when and how many — we&rsquo;ll hold a spot and reply within the day.</p>
+          <div class="two-col">
+            <div class="field">
+              <label for="bf-name">Name</label>
+              <input id="bf-name" name="name" type="text" autocomplete="name" required placeholder="Your name" />
+            </div>
+            <div class="field">
+              <label for="bf-email">Email</label>
+              <input id="bf-email" name="email" type="email" autocomplete="email" required placeholder="you@email.com" />
+            </div>
+          </div>
+          <div class="two-col">
+            <div class="field">
+              <label for="bf-date">Preferred date</label>
+              <input id="bf-date" name="date" type="date" />
+            </div>
+            <div class="field">
+              <label for="bf-party">Party size</label>
+              <select id="bf-party" name="party">
+                <option>1–2 people</option>
+                <option>3–4 people</option>
+                <option>5–6 people</option>
+                <option>7+ (let&rsquo;s talk)</option>
+              </select>
+            </div>
+          </div>
+          <div class="field">
+            <label for="bf-msg">Anything we should know?</label>
+            <textarea id="bf-msg" name="message" placeholder="Allergies, a birthday, a window seat…"></textarea>
+          </div>
+          <button class="btn btn--warm" type="submit">Request a table</button>
+          <p class="form-ok" id="book-ok" role="status">Thanks — your request is in! We&rsquo;ll be in touch shortly. (Demo form — nothing was sent.)</p>
+        </form>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-grid">
+      <div>
+        <h4>Marigold Kitchen</h4>
+        <p>Seasonal café &amp; bakery on the corner of Linden &amp; 4th. Baked fresh, poured slow, since 2014.</p>
+      </div>
+      <div>
+        <p class="col-title">Visit</p>
+        <ul>
+          <li><a href="#menu">Menu</a></li>
+          <li><a href="#gallery">Gallery</a></li>
+          <li><a href="#book">Book a table</a></li>
+          <li><a href="#visit">Hours &amp; location</a></li>
+        </ul>
+      </div>
+      <div>
+        <p class="col-title">Say hello</p>
+        <ul>
+          <li><a href="mailto:hello@marigoldkitchen.example">hello@marigoldkitchen.example</a></li>
+          <li><a href="#book">(555) 014-2280</a></li>
+          <li><a href="#top">Instagram</a></li>
+          <li><a href="#top">Newsletter</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <span>© 2024 Marigold Kitchen. A sample showcase site.</span>
+      <span>Built with care · your menu, your photos, your domain.</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+(() => {
+  "use strict";
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  // sticky nav shadow
+  const nav = document.getElementById("topnav");
+  const onScroll = () => nav.classList.toggle("scrolled", window.scrollY > 8);
+  onScroll();
+  window.addEventListener("scroll", onScroll, { passive: true });
+
+  // scroll reveal via IntersectionObserver (degrades to visible if unsupported/reduced)
+  const reveals = document.querySelectorAll(".reveal");
+  if (reduce || !("IntersectionObserver" in window)) {
+    reveals.forEach((el) => el.classList.add("in"));
+  } else {
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((e) => {
+        if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); }
+      });
+    }, { threshold: 0.12, rootMargin: "0px 0px -8% 0px" });
+    reveals.forEach((el) => io.observe(el));
+  }
+
+  // tasteful CSS-3D tilt on dish cards (pointer only, never under reduced-motion)
+  if (!reduce && window.matchMedia("(pointer:fine)").matches) {
+    document.querySelectorAll("[data-tilt]").forEach((card) => {
+      const MAX = 7; // degrees
+      let raf = 0;
+      const move = (ev) => {
+        const r = card.getBoundingClientRect();
+        const px = (ev.clientX - r.left) / r.width - 0.5;
+        const py = (ev.clientY - r.top) / r.height - 0.5;
+        if (raf) cancelAnimationFrame(raf);
+        raf = requestAnimationFrame(() => {
+          card.style.transform =
+            `rotateX(${(-py * MAX).toFixed(2)}deg) rotateY(${(px * MAX).toFixed(2)}deg) translateY(-4px)`;
+        });
+      };
+      const reset = () => {
+        if (raf) cancelAnimationFrame(raf);
+        card.style.transform = "";
+      };
+      card.addEventListener("pointermove", move);
+      card.addEventListener("pointerleave", reset);
+    });
+  }
+
+  // highlight today's hours row
+  const hours = document.getElementById("hours");
+  if (hours) {
+    const idx = new Date().getDay(); // 0=Sun..6=Sat
+    const order = [1, 2, 3, 4, 5, 6, 0].indexOf(idx); // our list starts Monday
+    const li = hours.children[order];
+    if (li) li.classList.add("today");
+  }
+
+  // demo form (no network) — friendly inline confirmation
+  const form = document.getElementById("book-form");
+  const ok = document.getElementById("book-ok");
+  if (form) {
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const name = form.querySelector("#bf-name");
+      const email = form.querySelector("#bf-email");
+      if (!name.value.trim() || !email.value.trim()) {
+        (!name.value.trim() ? name : email).focus();
+        return;
+      }
+      ok.classList.add("show");
+      form.querySelector("button").textContent = "Request sent ✓";
+      ok.focus?.();
+    });
+  }
+})();
+</script>
+</body>
+</html>
