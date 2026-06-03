@@ -1,5 +1,6 @@
 // Tiny vanilla UI layer — hyperscript + helpers. Zero dependencies.
 // h('div', {class:'x', onClick:fn}, child, child) -> HTMLElement. Views are functions that return nodes.
+import { toggleTheme, getTheme } from './theme.js';
 
 export function h(tag, props, ...children) {
   const el = document.createElement(tag);
@@ -48,6 +49,8 @@ export const icon = (name) => {
     ext: '<path d="M14 4h6v6"/><path d="M20 4 10 14"/><path d="M19 14v5H5V5h5"/>',
     send: '<path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7Z"/>',
     menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
+    moon: '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>',
+    sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
   };
   const span = h('span', { class: 'ico' });
   span.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:100%;height:100%">${paths[name] || ''}</svg>`;
@@ -56,6 +59,15 @@ export const icon = (name) => {
 
 // The iridescent signature orb (AI avatar + console hero). `cls`: '' (30px), 'sm', 'lg'.
 export const orb = (cls = '') => h('span', { class: `orb ${cls}`.trim(), 'aria-hidden': 'true' });
+
+// Light/dark toggle button — shows the icon of the theme it switches TO, flips on click.
+export function themeToggle(cls = '') {
+  const btn = h('button', { class: `theme-toggle ${cls}`.trim(), type: 'button', 'aria-label': 'Toggle dark mode', title: 'Toggle light / dark' });
+  const paint = () => btn.replaceChildren(icon(getTheme() === 'dark' ? 'sun' : 'moon'));
+  paint();
+  btn.addEventListener('click', () => { toggleTheme(); paint(); });
+  return btn;
+}
 
 export const initials = (s) => String(s || '?').trim().slice(0, 1).toUpperCase();
 export const fmtDate = (iso) => { try { return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }); } catch { return ''; } };

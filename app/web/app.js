@@ -2,7 +2,7 @@
 // ctx = { me, api, navigate, toast, refresh }. `me` = GET /api/me payload:
 //   { account, shop, plan:{key,label,price,quota}, quota:{used,remaining,freeAvailable,allowance},
 //     site:{ previewUrl, screenshots[], expiresAt, status } | null }
-import { h, mount, toast, icon, initials } from './ui.js';
+import { h, mount, toast, icon, initials, themeToggle } from './ui.js';
 import { api } from './api.js';
 import { AuthView } from './views/auth.js';
 import { DashboardView } from './views/dashboard.js';
@@ -71,9 +71,11 @@ function Shell(route, viewNode) {
   const topbar = h('div', { class: 'topbar' },
     h('button', { class: 'menu-btn', 'aria-label': 'Menu', onClick: () => app.classList.toggle('nav-open') }, icon('menu')),
     h('h1', {}, route.title),
-    me.site && me.site.previewUrl
-      ? h('a', { class: 'btn ghost sm', href: me.site.previewUrl, target: '_blank', rel: 'noopener' }, 'View live site', icon('ext'))
-      : h('span'));
+    h('div', { style: { display: 'flex', alignItems: 'center', gap: '10px' } },
+      themeToggle(),
+      me.site && me.site.previewUrl
+        ? h('a', { class: 'btn ghost sm', href: me.site.previewUrl, target: '_blank', rel: 'noopener' }, 'View live site', icon('ext'))
+        : null));
 
   app.append(sidebar, h('main', { class: 'main' }, topbar, h('div', { class: 'view' }, viewNode)));
   sidebar.addEventListener('click', (e) => { if (e.target.closest('a')) app.classList.remove('nav-open'); });

@@ -1,11 +1,11 @@
-import { h } from '../ui.js';
+import { h, themeToggle } from '../ui.js';
 
 // Login / signup / claim. ctx = { path, api, navigate, onAuthed }.
 export function AuthView(ctx) {
   const { path, api, navigate, onAuthed } = ctx;
   const wrap = h('div', { class: 'auth' });
   const card = h('div', { class: 'auth-card card pad' });
-  wrap.append(card);
+  wrap.append(card, themeToggle());
   const brand = () => h('div', { class: 'brand' }, h('span', { class: 'mark' }), 'Storefronty');
 
   function authForm({ mode, shop, token }) {

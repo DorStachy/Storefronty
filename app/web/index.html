@@ -6,6 +6,10 @@
   <meta name="theme-color" content="#FBFBFE" />
   <title>Storefronty</title>
   <meta name="description" content="Manage your website — preview it, request changes, and pick a plan." />
+  <script>
+    // apply saved theme before paint (no flash of the wrong mode)
+    try { var t = localStorage.getItem('sf-theme') || (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'); document.documentElement.dataset.theme = t === 'dark' ? 'dark' : 'light'; } catch (e) { document.documentElement.dataset.theme = 'light'; }
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="/portal/styles.css" />
