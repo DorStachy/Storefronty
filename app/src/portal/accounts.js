@@ -10,6 +10,14 @@ export const PLANS = {
 };
 export const PLAN_LIST = [PLANS.starter, PLANS.pro, PLANS.premium];
 
+// One-time "buy more changes" packs. Priced around the Pro per-unit ($49/15 ≈ $3.27); the bigger
+// pack is the better value. They add non-expiring credits used after the monthly plan quota.
+export const TOPUPS = {
+  pack5: { key: 'pack5', label: '5 changes', changes: 5, price: 19 },
+  pack15: { key: 'pack15', label: '15 changes', changes: 15, price: 45 },
+};
+export const TOPUP_LIST = [TOPUPS.pack5, TOPUPS.pack15];
+
 // scrypt password hash, stored as `saltHex:hashHex`. Constant-time verify.
 export function hashPassword(pw) {
   const salt = randomBytes(16);
@@ -43,23 +51,25 @@ export function authenticate(db, email, password) {
   return acct;
 }
 
-// Quota = plan allowance this month + the one post-signup free change (until used). monthKey 'YYYY-MM'.
+// Quota = plan allowance this month + the post-signup free change + bought top-up credits. 'YYYY-MM'.
 export function quota(db, account, monthKey) {
   const plan = PLANS[account.plan] || null;
   const allowance = plan ? plan.quota : 0;
   const used = db.changeRequestsThisMonth(account.id, monthKey);
   const remaining = allowance === Infinity ? Infinity : Math.max(0, allowance - used);
-  return { plan: account.plan, allowance, used, remaining, freeAvailable: !account.free_change_used };
+  const extra = Number(account.extra_changes) || 0;
+  return { plan: account.plan, allowance, used, remaining, extra, freeAvailable: !account.free_change_used };
 }
 
-// May this account submit a change now? The free change is spent first; then the plan quota (which
-// requires an active plan). Returns { ok, useFree } or { ok:false, reason }.
+// May this account submit a change now? Order: the post-signup free change → the monthly plan quota
+// (active plan) → bought top-up credits. Returns { ok, useFree?, useExtra? } or { ok:false, reason }.
 export function canRequestChange(db, account, monthKey) {
   const q = quota(db, account, monthKey);
   if (q.freeAvailable) return { ok: true, useFree: true };
-  if (account.plan_status !== 'active') return { ok: false, reason: 'no active plan — pick a plan to keep requesting changes' };
-  if (q.remaining > 0) return { ok: true, useFree: false };
-  return { ok: false, reason: 'monthly change quota reached' };
+  if (account.plan_status === 'active' && q.remaining > 0) return { ok: true };
+  if (q.extra > 0) return { ok: true, useExtra: true };
+  if (account.plan_status !== 'active') return { ok: false, reason: 'pick a plan or buy a change pack to keep going', needsPlan: true };
+  return { ok: false, reason: "you've used this month's changes — buy a pack to keep going", needsTopup: true };
 }
 
 export const monthKeyOf = (iso) => String(iso).slice(0, 7); // 'YYYY-MM'

@@ -169,3 +169,35 @@ export async function stripeCheckout(opts = {}) {
   const stripe = makeStripe({ fetchForm, secretKey });
   return stripe.createCheckoutSession(opts);
 }
+
+// Build fields for a ONE-TIME (mode=payment) change-pack purchase. metadata.changes drives the
+// credit the webhook grants. amountCents + changes come from the caller (accounts.TOPUPS).
+function topupFields({ accountId, email, label, amountCents, changes, successUrl, cancelUrl }) {
+  const fields = {
+    mode: 'payment',
+    success_url: successUrl,
+    cancel_url: cancelUrl,
+    'line_items[0][quantity]': '1',
+    'line_items[0][price_data][currency]': 'usd',
+    'line_items[0][price_data][product_data][name]': `Storefronty — ${label || `${changes} changes`}`,
+    'line_items[0][price_data][unit_amount]': String(amountCents),
+  };
+  if (accountId != null) { fields.client_reference_id = String(accountId); fields['metadata[accountId]'] = String(accountId); }
+  if (email) fields.customer_email = email;
+  fields['metadata[changes]'] = String(changes);
+  return fields;
+}
+
+/**
+ * stripeTopup(opts) -> { url, id }. One-time Checkout Session for a change pack (mode=payment).
+ * Same key-gating/transport as stripeCheckout; the webhook reads metadata.changes to grant credits.
+ */
+export async function stripeTopup(opts = {}) {
+  const secretKey = opts.secretKey ?? process.env.STRIPE_SECRET_KEY ?? '';
+  if (!secretKey) throw new Error('STRIPE_SECRET_KEY not set');
+  const fetchForm = opts.fetchForm
+    || ((url, fields, options) => postForm(url, fields, { headers: options.headers }));
+  const resp = await fetchForm(CHECKOUT_ENDPOINT, topupFields(opts), { headers: { authorization: `Bearer ${secretKey}` } });
+  if (!resp || typeof resp !== 'object' || !resp.url) throw new Error('STRIPE_BAD_RESPONSE');
+  return { url: resp.url, id: resp.id };
+}

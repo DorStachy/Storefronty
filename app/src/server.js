@@ -12,7 +12,7 @@ import { isApiRoute, handleApi, handleStripeWebhook } from './api/index.js';
 const readBody = (req) =>
   new Promise((resolve) => {
     let d = '';
-    req.on('data', (c) => { d += c; if (d.length > 1_000_000) req.destroy(); });
+    req.on('data', (c) => { d += c; if (d.length > 12_000_000) req.destroy(); });
     req.on('end', () => resolve(d));
     req.on('error', () => resolve(''));
   });

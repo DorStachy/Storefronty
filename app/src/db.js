@@ -60,13 +60,15 @@ CREATE TABLE IF NOT EXISTS accounts (
   plan_status TEXT DEFAULT 'inactive',  -- inactive|active|past_due|canceled
   stripe_customer TEXT,
   free_change_used INTEGER DEFAULT 0,
+  extra_changes INTEGER DEFAULT 0,      -- bought top-up credits (do NOT reset monthly)
   created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS change_requests (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   account_id INTEGER, lead_id INTEGER, body TEXT,
-  kind TEXT DEFAULT 'change',           -- change|free (the post-signup free one)
+  kind TEXT DEFAULT 'change',           -- change|free|extra
   status TEXT NOT NULL DEFAULT 'queued',-- queued|done
+  images TEXT,                          -- JSON array of uploaded photo paths (sent with the request)
   created_at TEXT NOT NULL
 );
 `;
@@ -81,6 +83,8 @@ export function openDatabase(path) {
   // Lightweight migration: the 48h preview expiry column (added Phase 2). IF NOT EXISTS has no
   // column form in sqlite, so guard the ALTER and ignore "duplicate column" on already-migrated DBs.
   try { db.exec('ALTER TABLE sites ADD COLUMN expires_at TEXT'); } catch { /* column already present */ }
+  try { db.exec('ALTER TABLE change_requests ADD COLUMN images TEXT'); } catch { /* present */ }
+  try { db.exec('ALTER TABLE accounts ADD COLUMN extra_changes INTEGER DEFAULT 0'); } catch { /* present */ }
 
   let inTx = false;          // re-entry guard for nested transaction() calls
 
@@ -211,10 +215,12 @@ export function openDatabase(path) {
       db.prepare('UPDATE accounts SET plan = ?, plan_status = ?, stripe_customer = COALESCE(?, stripe_customer) WHERE id = ?')
         .run(plan, planStatus, stripeCustomer ?? null, id),
     markFreeChangeUsed: (id) => db.prepare('UPDATE accounts SET free_change_used = 1 WHERE id = ?').run(id),
+    addExtraChanges: (id, n) => db.prepare('UPDATE accounts SET extra_changes = COALESCE(extra_changes,0) + ? WHERE id = ?').run(n, id),
+    consumeExtraChange: (id) => db.prepare('UPDATE accounts SET extra_changes = MAX(0, COALESCE(extra_changes,0) - 1) WHERE id = ?').run(id),
 
-    addChangeRequest({ accountId, leadId, body, kind = 'change' }) {
-      const info = db.prepare(`INSERT INTO change_requests (account_id,lead_id,body,kind,status,created_at)
-        VALUES (?,?,?,?,?,?)`).run(accountId ?? null, leadId ?? null, body ?? '', kind, 'queued', now());
+    addChangeRequest({ accountId, leadId, body, kind = 'change', images = null }) {
+      const info = db.prepare(`INSERT INTO change_requests (account_id,lead_id,body,kind,status,images,created_at)
+        VALUES (?,?,?,?,?,?,?)`).run(accountId ?? null, leadId ?? null, body ?? '', kind, 'queued', images ? JSON.stringify(images) : null, now());
       return Number(info.lastInsertRowid);
     },
     changeRequestsFor: (accountId) => db.prepare('SELECT * FROM change_requests WHERE account_id = ? ORDER BY id').all(accountId),

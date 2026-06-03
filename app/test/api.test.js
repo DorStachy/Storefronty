@@ -98,3 +98,44 @@ test('stripe webhook activates the plan on checkout.session.completed', async ()
   assert.equal(db.getAccount(acctId).plan_status, 'active');
   db.close();
 });
+
+test('image upload: a request with photos is saved + counted on the change request', async () => {
+  const db = openDatabase(':memory:');
+  const { id } = db.insertLead({ name: 'Img Cafe', niche: 'cafe' });
+  for (const s of ['built', 'deployed', 'emailed']) db.setStatus(id, s);
+  const token = signToken({ leadId: id, kind: 'claim' }, config.signSecret);
+  const cookies = cookiesFrom(await handleApi({ method: 'POST', path: '/api/auth/signup', body: { email: 'img@b.com', password: 'longenough1', token }, db, config }));
+  const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+  const r = await handleApi({ method: 'POST', path: '/api/requests', body: { body: 'add these photos', images: [{ name: 'a.png', dataUrl: png }] }, cookies, db, config });
+  assert.equal(r.status, 200);
+  assert.equal(J(r).request.images, 1);
+  const reqs = db.changeRequestsFor(db.getAccountByEmail('img@b.com').id);
+  assert.equal(reqs.length, 1);
+  assert.equal(JSON.parse(reqs[0].images).length, 1); // the photo path was stored ("sent to us")
+  db.close();
+});
+
+test('top-up: the webhook grants credits, which allow a change after the quota is spent', async () => {
+  const db = openDatabase(':memory:');
+  const { id } = db.insertLead({ name: 'Topup Cafe', niche: 'cafe' });
+  for (const s of ['built', 'deployed', 'emailed']) db.setStatus(id, s);
+  const token = signToken({ leadId: id, kind: 'claim' }, config.signSecret);
+  const cookies = cookiesFrom(await handleApi({ method: 'POST', path: '/api/auth/signup', body: { email: 'top@b.com', password: 'longenough1', token }, db, config }));
+  const acct = db.getAccountByEmail('top@b.com');
+
+  await handleApi({ method: 'POST', path: '/api/requests', body: { body: 'free one' }, cookies, db, config }); // free
+  assert.equal((await handleApi({ method: 'POST', path: '/api/requests', body: { body: 'blocked' }, cookies, db, config })).status, 402); // no plan/credits
+
+  const ev = { type: 'checkout.session.completed', data: { object: { mode: 'payment', client_reference_id: String(acct.id), metadata: { accountId: String(acct.id), changes: '5' } } } };
+  const raw = JSON.stringify(ev); const t = 1700000000;
+  const sig = `t=${t},v1=${createHmac('sha256', config.stripe.webhookSecret).update(`${t}.${raw}`).digest('hex')}`;
+  assert.equal((await handleStripeWebhook({ rawBody: raw, signature: sig, db, config })).status, 200);
+  assert.equal(db.getAccount(acct.id).extra_changes, 5); // credited
+
+  assert.equal((await handleApi({ method: 'POST', path: '/api/requests', body: { body: 'uses a credit' }, cookies, db, config })).status, 200);
+  assert.equal(db.getAccount(acct.id).extra_changes, 4); // credit consumed
+
+  delete process.env.STRIPE_SECRET_KEY;
+  assert.equal(J(await handleApi({ method: 'POST', path: '/api/billing/topup', body: { pack: 'pack5' }, cookies, db, config })).configured, false);
+  db.close();
+});

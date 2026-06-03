@@ -1,10 +1,37 @@
 // Portal JSON API (the SPA's data layer). Cookie-session auth (HMAC, util/sign.js). Reuses the
 // account/quota/Stripe logic + the orchestrator pipeline. handleApi() is pure given (ctx); the server
 // does the IO. Returns { status, headers, body } | null (null → not an /api route).
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { resolve, dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { signToken, verifyToken } from '../util/sign.js';
-import { createAccount, authenticate, quota, canRequestChange, monthKeyOf, PLANS, PLAN_LIST } from '../portal/accounts.js';
+import { createAccount, authenticate, quota, canRequestChange, monthKeyOf, PLANS, PLAN_LIST, TOPUPS, TOPUP_LIST } from '../portal/accounts.js';
 import { canTransition } from '../states.js';
 import { shotsFromDir } from '../screenshot/index.js';
+
+const here = dirname(fileURLToPath(import.meta.url));
+const UPLOADS = resolve(here, '..', '..', 'data', 'uploads'); // private (data/ is gitignored)
+const IMG_EXT = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif' };
+const safeLen = (j) => { try { const a = JSON.parse(j); return Array.isArray(a) ? a.length : 0; } catch { return 0; } };
+
+// Save the owner's attached photos (data URLs) to disk; return saved paths. Capped + validated, so
+// a request "actually gets sent to us" — the founder/rebuild step reads these off the change request.
+function saveImages(accountId, images) {
+  if (!Array.isArray(images) || !images.length) return [];
+  const dir = join(UPLOADS, String(accountId));
+  mkdirSync(dir, { recursive: true });
+  const saved = [];
+  const stamp = Date.now();
+  images.slice(0, 6).forEach((img, i) => {
+    const m = /^data:(image\/(?:jpeg|png|webp|gif));base64,(.+)$/.exec(String((img && img.dataUrl) || ''));
+    if (!m) return;
+    const buf = Buffer.from(m[2], 'base64');
+    if (!buf.length || buf.length > 6_000_000) return; // 6MB/image cap
+    const path = join(dir, `${stamp}-${i}.${IMG_EXT[m[1]] || 'jpg'}`);
+    try { writeFileSync(path, buf); saved.push(path); } catch { /* skip a bad one */ }
+  });
+  return saved;
+}
 
 const SESSION_COOKIE = 'sf_session';
 const json = (status, obj, headers = {}) => ({ status, headers: { 'content-type': 'application/json; charset=utf-8', ...headers }, body: JSON.stringify(obj) });
@@ -21,10 +48,12 @@ function sessionAccount(db, cookies, config) {
 const safeAccount = (a) => ({ id: a.id, email: a.email, plan: a.plan, planStatus: a.plan_status, freeChangeUsed: !!a.free_change_used });
 
 // A natural, human-feeling acknowledgement of a change request (LLM-backed later; templated now).
-export function replyText(text, useFree) {
+export function replyText(text, useFree, photos = 0) {
   const s = String(text || '').replace(/\s+/g, ' ').trim().replace(/[.!]+$/, '');
   const opener = useFree ? "Love it — and this first one's on me. " : 'On it. ';
-  return `${opener}I'll take care of that${s ? ` — “${s}”` : ''} and rebuild your site now. It'll update here in a moment. Anything else you'd like changed?`;
+  const what = s ? `I'll take care of that — “${s}”` : "I'll get your photos added in";
+  const pics = photos ? ` I've got your ${photos} photo${photos === 1 ? '' : 's'} too.` : '';
+  return `${opener}${what} and rebuild your site now.${pics} It'll update here in a moment. Anything else you'd like changed?`;
 }
 
 function shotUrls(site, config) {
@@ -43,7 +72,7 @@ function mePayload(db, account, config) {
     account: safeAccount(account),
     shop: lead ? lead.name : null,
     plan: plan ? { key: plan.key, label: plan.label, price: plan.price, quota: plan.quota === Infinity ? null : plan.quota, domainIncluded: !!plan.domainIncluded } : null,
-    quota: { used: q.used, remaining: q.remaining === Infinity ? null : q.remaining, allowance: q.allowance === Infinity ? null : q.allowance, freeAvailable: q.freeAvailable },
+    quota: { used: q.used, remaining: q.remaining === Infinity ? null : q.remaining, allowance: q.allowance === Infinity ? null : q.allowance, extra: q.extra, freeAvailable: q.freeAvailable },
     site: site ? { previewUrl: site.preview_url || null, screenshots: shotUrls(site, config), expiresAt: site.expires_at || null, status: site.preview_url ? 'live' : 'building' } : null,
   };
 }
@@ -76,6 +105,9 @@ export async function handleApi({ method, path, body = {}, cookies = {}, db, con
   if (path === '/api/plans' && method === 'GET') {
     return json(200, { plans: PLAN_LIST.map((p) => ({ key: p.key, label: p.label, price: p.price, quota: p.quota === Infinity ? null : p.quota, domainIncluded: !!p.domainIncluded })) });
   }
+  if (path === '/api/topups' && method === 'GET') {
+    return json(200, { topups: TOPUP_LIST.map((t) => ({ key: t.key, label: t.label, changes: t.changes, price: t.price })) });
+  }
 
   // --- authed ---
   const account = sessionAccount(db, cookies, config);
@@ -84,30 +116,35 @@ export async function handleApi({ method, path, body = {}, cookies = {}, db, con
   if (path === '/api/me' && method === 'GET') return json(200, mePayload(db, account, config));
 
   if (path === '/api/requests' && method === 'GET') {
-    const reqs = db.changeRequestsFor(account.id).map((r) => ({
-      id: r.id, body: r.body, kind: r.kind, status: r.status, createdAt: r.created_at, reply: replyText(r.body, r.kind === 'free'),
-    }));
+    const reqs = db.changeRequestsFor(account.id).map((r) => {
+      const imgs = r.images ? safeLen(r.images) : 0;
+      return { id: r.id, body: r.body, kind: r.kind, status: r.status, createdAt: r.created_at, images: imgs, reply: replyText(r.body, r.kind === 'free', imgs) };
+    });
     return json(200, { requests: reqs });
   }
 
   if (path === '/api/requests' && method === 'POST') {
     const text = String(body.body || '').trim();
-    if (!text) return json(400, { error: 'tell me what to change' });
+    const incoming = Array.isArray(body.images) ? body.images : [];
+    if (!text && !incoming.length) return json(400, { error: 'tell me what to change, or attach a photo' });
     const mk = monthKeyOf(new Date().toISOString());
     const decision = canRequestChange(db, account, mk);
-    if (!decision.ok) return json(402, { error: decision.reason, needsPlan: true });
-    db.addChangeRequest({ accountId: account.id, leadId: account.lead_id, body: text, kind: decision.useFree ? 'free' : 'change' });
+    if (!decision.ok) return json(402, { error: decision.reason, needsPlan: !!decision.needsPlan, needsTopup: !!decision.needsTopup });
+    const saved = saveImages(account.id, incoming);
+    const kind = decision.useFree ? 'free' : decision.useExtra ? 'extra' : 'change';
+    db.addChangeRequest({ accountId: account.id, leadId: account.lead_id, body: text, kind, images: saved.length ? saved : null });
     if (decision.useFree) db.markFreeChangeUsed(account.id);
+    else if (decision.useExtra) db.consumeExtraChange(account.id);
     if (account.lead_id) {
-      db.recordEvent(account.lead_id, 'edit_request', { change: text, via: 'portal' });
+      db.recordEvent(account.lead_id, 'edit_request', { change: text, photos: saved.length, via: 'portal' });
       const lead = db.getLead(account.lead_id);
       if (lead && canTransition(lead.status, 'replied')) db.setStatus(account.lead_id, 'replied', { via: 'portal' });
     }
     const q = quota(db, db.getAccount(account.id), mk);
     return json(200, {
-      request: { body: text, status: 'queued' },
-      reply: replyText(text, decision.useFree),
-      quota: { remaining: q.remaining === Infinity ? null : q.remaining, freeAvailable: q.freeAvailable },
+      request: { body: text, status: 'queued', images: saved.length },
+      reply: replyText(text, decision.useFree, saved.length),
+      quota: { remaining: q.remaining === Infinity ? null : q.remaining, extra: q.extra, freeAvailable: q.freeAvailable },
     });
   }
 
@@ -124,6 +161,19 @@ export async function handleApi({ method, path, body = {}, cookies = {}, db, con
     }
   }
 
+  if (path === '/api/billing/topup' && method === 'POST') {
+    const pack = TOPUPS[body.pack];
+    if (!pack) return json(400, { error: 'pick a pack' });
+    try {
+      const { stripeTopup } = await import('../portal/stripe.js');
+      const base = (config.portalBaseUrl || '').replace(/\/$/, '');
+      const { url } = await stripeTopup({ accountId: account.id, email: account.email, label: pack.label, amountCents: pack.price * 100, changes: pack.changes, successUrl: `${base}/billing?topped=1`, cancelUrl: `${base}/billing` });
+      return json(200, { url });
+    } catch {
+      return json(200, { configured: false, message: 'Card payments switch on once Stripe is connected.' });
+    }
+  }
+
   return json(404, { error: 'not found' });
 }
 
@@ -134,6 +184,15 @@ export async function handleStripeWebhook({ rawBody, signature, db, config }) {
     const stripe = makeStripe({ secretKey: config.stripe?.secretKey || '' });
     const event = stripe.verifyWebhook(rawBody, signature, config.stripe?.webhookSecret || '');
     if (!event) return { status: 400, body: 'bad signature' };
+    // one-time change-pack purchase → grant credits (must run BEFORE the subscription path, which
+    // would otherwise set plan=null active on a payment-mode session).
+    const obj = event.data && event.data.object;
+    if (event.type === 'checkout.session.completed' && obj && obj.mode === 'payment' && obj.metadata && obj.metadata.changes) {
+      const acctId = Number(obj.metadata.accountId || obj.client_reference_id);
+      const n = Number(obj.metadata.changes) || 0;
+      if (acctId && n) db.addExtraChanges(acctId, n);
+      return { status: 200, body: 'ok' };
+    }
     const norm = stripe.parseSubscriptionEvent(event);
     if (norm && norm.accountId) {
       const active = norm.type === 'checkout.session.completed' || norm.status === 'active';
