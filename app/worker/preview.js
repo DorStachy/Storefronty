@@ -44,7 +44,7 @@ function expiredPage(portalUrl) {
 </style></head><body><div class="card">
   <div class="orb"></div>
   <h1>This preview has expired</h1>
-  <p>Your Storefronty site was live for 48 hours. Want it back — for good, with your changes? Claim it and it's yours.</p>
+  <p>Your Storefronty site was live for 48 hours. Want it back for good — your design, your changes, on your own domain? Claim your account and pick a plan to keep it live.</p>
   <a class="btn" href="${portalUrl}">Claim your site</a>
 </div></body></html>`;
 }

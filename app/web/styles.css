@@ -312,3 +312,29 @@ textarea.input { resize: vertical; min-height: 92px; line-height: 1.55; }
 [hidden] { display: none !important; }
 .center-pad { padding: 64px 20px; text-align: center; color: var(--ink-2); }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+/* --- production build-out additions: tier examples, add-to-google, custom domain --- */
+/* Tokens referenced by billing/account/auth that weren't defined in :root (they silently fell back). */
+:root { --display: var(--font); --espresso: var(--ink); --ink-70: var(--ink-2); --danger: #E5484D; }
+
+/* "See an example" link under each plan card → the tier showcase site */
+.plan-example { display: inline-flex; align-items: center; justify-content: center; gap: 6px; width: 100%;
+  margin: -6px 0 14px; font-size: 13.5px; font-weight: 600; color: var(--primary); }
+.plan-example:hover { text-decoration: underline; }
+.plan-example .ico { width: 15px; height: 15px; }
+
+/* Add-to-Google activation card (dashboard) */
+.gb-card .gb-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.gb-copy { margin: 0 0 14px; font-size: 14.5px; color: var(--ink-2); }
+.gb-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.gb-url { flex: 1 1 260px; min-width: 0; padding: 11px 13px; border: 1px solid var(--line-2); border-radius: var(--r-sm);
+  background: var(--surface-2); color: var(--ink); font-size: 13.5px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.gb-link { display: inline-flex; align-items: center; gap: 6px; margin-top: 12px; font-size: 13.5px; font-weight: 600; }
+.gb-link .ico { width: 15px; height: 15px; }
+
+/* Custom-domain panel (account, Premium) */
+.cname-box { margin-top: 14px; padding: 14px 16px; border: 1px solid var(--line-2); border-radius: var(--r); background: var(--surface-2); }
+.cname-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.cname-row code { background: var(--surface); border: 1px solid var(--line); border-radius: 7px; padding: 4px 8px;
+  font-size: 13px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--ink); }
+.hairline { border: none; border-top: 1px solid var(--line); }

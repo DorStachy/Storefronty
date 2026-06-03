@@ -3,10 +3,13 @@
 // the founder can run today with no third-party creds. (design spec §7)
 import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 
+// `exampleUrl` points at the generic, hand-built showcase demo for that tier (one Pro, one Premium,
+// reused for every customer) — the portal's "See an example" link. Starter's example is the owner's
+// own live preview, so it has none.
 export const PLANS = {
-  starter: { key: 'starter', label: 'Starter', price: 29, quota: 3 },
-  pro: { key: 'pro', label: 'Pro', price: 49, quota: 15 },
-  premium: { key: 'premium', label: 'Premium', price: 99, quota: Infinity, domainIncluded: true },
+  starter: { key: 'starter', label: 'Starter', price: 29, quota: 3, exampleUrl: null },
+  pro: { key: 'pro', label: 'Pro', price: 49, quota: 15, exampleUrl: '/showcase-pro/' },
+  premium: { key: 'premium', label: 'Premium', price: 99, quota: Infinity, domainIncluded: true, exampleUrl: '/showcase-premium/' },
 };
 export const PLAN_LIST = [PLANS.starter, PLANS.pro, PLANS.premium];
 

@@ -30,6 +30,10 @@ export function closeMailer() {
 }
 
 export async function sendEmail({ to, from, subject, html, text, attachments }, config, { _transport = null, retries = 2, retryDelayMs = 500 } = {}) {
+  // Hard safety guard: when a test recipient is configured, force EVERY email to it so no real business
+  // is ever contacted during dev/E2E. Central (covers all current + future callers); the per-call-site
+  // `testRecipient || lead.email` checks remain as defense-in-depth. Only the address changes.
+  if (config.mail?.testRecipient) to = config.mail.testRecipient;
   const hasCreds = config.mail?.user && config.mail?.pass;
 
   if (!hasCreds && !_transport) {
@@ -41,7 +45,11 @@ export async function sendEmail({ to, from, subject, html, text, attachments }, 
   }
 
   const transport = _transport || (await getTransport(config));
-  const envelope = { from: from || `${config.mail.fromName} <${config.mail.user}>`, to, subject, html, text, ...(attachments?.length ? { attachments } : {}) };
+  // Deliverability + trust headers: a real Reply-To so a reply reaches a human, and a List-Unsubscribe
+  // header so Gmail/Outlook show a native one-click unsubscribe — both reduce spam-flagging and make the
+  // message read as legitimate (sender authenticity, not a phishing blast).
+  const headers = config.mail?.user ? { 'List-Unsubscribe': `<mailto:${config.mail.user}?subject=unsubscribe>` } : undefined;
+  const envelope = { from: from || `${config.mail.fromName} <${config.mail.user}>`, replyTo: config.mail.user || undefined, to, subject, html, text, ...(headers ? { headers } : {}), ...(attachments?.length ? { attachments } : {}) };
   let lastErr;
   for (let attempt = 1; attempt <= retries + 1; attempt++) {
     try {

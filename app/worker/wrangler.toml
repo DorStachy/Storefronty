@@ -7,9 +7,9 @@ workers_dev = true
 #   wrangler kv namespace create PREVIEWS
 # then paste the returned id below AND into the backend env as CLOUDFLARE_KV_NAMESPACE_ID.
 kv_namespaces = [
-  { binding = "PREVIEWS", id = "PASTE_KV_NAMESPACE_ID_HERE" }
+  { binding = "PREVIEWS", id = "79a607035f2a41a2bdf5dc7ad51a98b4" }
 ]
 
 [vars]
 # Where the expired-preview "Claim your site" button points (your deployed portal's /login).
-PORTAL_URL = "https://CHANGE-ME.fly.dev/login"
+PORTAL_URL = "https://storefronty.fly.dev/login"

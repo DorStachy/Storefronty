@@ -49,8 +49,10 @@ export const config = {
   anthropic: { apiKey: E.ANTHROPIC_API_KEY || '', model: E.ANTHROPIC_MODEL || 'claude-opus-4-8' },
   stripe: { secretKey: E.STRIPE_SECRET_KEY || '', webhookSecret: E.STRIPE_WEBHOOK_SECRET || '' },
   // Payment provider: Paddle (Merchant of Record — works for Israeli sellers) is preferred; Stripe
-  // stays available for a US-LLC path. Auto-detected from whichever keys are present.
-  payments: { provider: E.PAYMENTS_PROVIDER || (E.PADDLE_CLIENT_TOKEN ? 'paddle' : (E.STRIPE_SECRET_KEY ? 'stripe' : 'none')) },
+  // stays available for a US-LLC path. Auto-detected from whichever keys are present. A 'stub' provider
+  // (PAYMENTS_STUB=1, or PAYMENTS_PROVIDER=stub) completes checkout with no real money so the full
+  // pick-plan→paid→permanent flow runs end-to-end — flipping to live Paddle is purely adding keys.
+  payments: { provider: E.PAYMENTS_PROVIDER || (E.PADDLE_CLIENT_TOKEN ? 'paddle' : (E.STRIPE_SECRET_KEY ? 'stripe' : (E.PAYMENTS_STUB === '1' ? 'stub' : 'none'))) },
   paddle: {
     env: E.PADDLE_ENV || 'sandbox',
     apiKey: E.PADDLE_API_KEY || '',

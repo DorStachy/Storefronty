@@ -6,11 +6,42 @@ export async function DashboardView(ctx) {
   wrap.append(h('div', { class: 'bento' },
     previewCard(ctx.me.site),
     h('div', { class: 'bento-side' }, usageCard(ctx), planCard(ctx))));
+  const gb = addToGoogleCard(ctx);
+  if (gb) wrap.append(gb);
   wrap.append(await recentCard(ctx));
   return wrap;
 }
 
 const greeting = () => { const hr = new Date().getHours(); return hr < 12 ? 'Good morning' : hr < 18 ? 'Good afternoon' : 'Good evening'; };
+
+// The 4-colour Google "G" (inline so it keeps its brand colours; icon() is single-stroke).
+const googleMark = () => h('span', {
+  'aria-hidden': 'true', style: { width: '22px', height: '22px', display: 'inline-flex', flex: '0 0 auto' },
+  html: '<svg viewBox="0 0 48 48" width="22" height="22"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>',
+});
+
+// "Add to Google" activation — the conversion hack: paste the live preview URL into the owner's Google
+// Business Profile so real customers see the new site on their listing for the 48h trial. Only shown
+// once a live preview exists; the urgency copy applies while it's still a trial (expiresAt set).
+function addToGoogleCard(ctx) {
+  const site = ctx.me.site;
+  if (!site || !site.previewUrl) return null;
+  const url = site.previewUrl;
+  const trial = !!site.expiresAt;
+  const field = h('input', { class: 'gb-url', type: 'text', readonly: 'readonly', value: url, onClick: (e) => e.target.select() });
+  const copyBtn = h('button', { class: 'btn ghost sm', type: 'button' }, icon('copy'), 'Copy link');
+  copyBtn.addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(url); ctx.toast('Link copied'); }
+    catch { field.select(); try { document.execCommand('copy'); } catch { /* noop */ } ctx.toast('Link copied'); }
+  });
+  return h('div', { class: 'card pad gb-card', style: { marginTop: '18px' } },
+    h('div', { class: 'gb-head' }, googleMark(), h('div', { class: 'eyebrow', style: { margin: 0 } }, 'Put it in front of real customers')),
+    h('p', { class: 'gb-copy' }, trial
+      ? 'Paste your site link into your Google Business Profile (the “Website” field). For the next 48 hours, anyone who finds you on Google or Maps lands on your new site — a real test drive. Pick a plan before it expires to keep it there for good.'
+      : 'Add your site to your Google Business Profile (the “Website” field) so everyone who finds you on Google or Maps goes straight to it.'),
+    h('div', { class: 'gb-row' }, field, copyBtn),
+    h('a', { class: 'gb-link', href: 'https://business.google.com/', target: '_blank', rel: 'noopener' }, 'Open Google Business Profile', icon('ext')));
+}
 
 function hero(ctx) {
   const { me, navigate } = ctx;

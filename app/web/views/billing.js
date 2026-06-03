@@ -1,4 +1,4 @@
-import { h, toast } from '../ui.js';
+import { h, icon, toast } from '../ui.js';
 
 // Plans & billing. ctx = { me, api, navigate, toast, refresh }.
 // me = { account:{plan,planStatus,…}, plan:{key,label,price,quota}|null,
@@ -143,6 +143,8 @@ function planCard(ctx, p, flagshipKey) {
     h('h3', {}, p.label),
     h('div', { class: 'price' }, `$${p.price}`, h('small', {}, '/mo')),
     h('ul', {}, ...features.map((f) => h('li', {}, f))),
+    // "See an example" → the generic hand-built showcase for this tier (Pro/Premium), opened in a new tab.
+    p.exampleUrl ? h('a', { class: 'plan-example', href: p.exampleUrl, target: '_blank', rel: 'noopener' }, 'See an example', icon('ext')) : null,
     cta(ctx, p, isCurrent, isFlagship));
 
   return card;
@@ -168,6 +170,12 @@ async function startPay(ctx, opts) {
   try {
     const r = opts.kind === 'topup' ? await ctx.api.topup(opts.key) : await ctx.api.checkout(opts.key);
     if (r && r.url) { window.location.href = r.url; return; }
+    // Stub provider: the server already granted the plan + made the site permanent. Refresh in place.
+    if (r && r.ok) {
+      t(opts.kind === 'topup' ? 'Changes added — ready to use.' : 'Plan active — your site is now live for good.');
+      if (ctx.refresh) await ctx.refresh();
+      return;
+    }
     t((r && r.message) || 'Card payments switch on once checkout is connected.');
   } catch (e) { t(e.message || 'Could not start checkout — please try again.'); }
 }

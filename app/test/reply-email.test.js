@@ -17,10 +17,13 @@ test('composeReplyEmail = approved §6.6 copy with TWO links, no emojis', () => 
   );
   assert.equal(subject, "re: a website for Silva's");
   assert.ok(text.includes('Thanks for getting back to me'));
-  assert.ok(text.includes("it'll be up for 48 hours"));
+  assert.ok(text.includes('live for the next 48 hours'));
   assert.ok(text.includes(site), 'link 1 (the live site) present');
-  assert.ok(text.includes(claim), 'link 2 (the account-claim link) present');
-  assert.ok(text.includes('one more change for you, free'));
+  assert.ok(text.includes(claim), 'link 2 (the private-portal claim link) present');
+  assert.ok(text.includes('private portal'), 'portal framing: manage + send change requests');
+  assert.ok(text.includes('Google Business Profile'), 'Add-to-Google activation hint present');
+  assert.ok(text.includes('next change is on me'), 'trial framing: 1 free change, not permanent');
+  assert.ok(/real person/i.test(text), 'anti-phishing: framed as a real person, not a scam');
   assert.ok(!/[\u{1F300}-\u{1FAFF}☀-➿←-⇿]/u.test(text), 'hand-typed: no emojis');
   assert.ok(html.includes('href') && !html.includes('{{'));
 });

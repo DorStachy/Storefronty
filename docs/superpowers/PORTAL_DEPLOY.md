@@ -46,11 +46,14 @@ and `fly deploy` again — the cold/reply emails and claim links use those.
 **Stripe webhook:** in the Stripe dashboard, add an endpoint → `https://<your-domain>/stripe/webhook`,
 copy its signing secret into `STRIPE_WEBHOOK_SECRET`.
 
-## The 48h preview sites (Cloudflare Workers — when you scale)
+## The 48h preview sites (Cloudflare KV — free, built)
 
-`HOSTING_ENGINE=local` (default) serves previews from the same box — fine to launch. For real wildcard
-48h hosting set `HOSTING_ENGINE=cloudflare` + `CLOUDFLARE_API_TOKEN` (one wildcard cert, KV-TTL expiry —
-the deployer has the seam). Cost: fractions of a cent per preview.
+Each built site is published as one self-contained HTML to **Cloudflare KV** with a native 48h TTL
+(auto-expires, no cleanup), served by a tiny Worker at `…workers.dev/<slug>/`. Free, no domain needed;
+when the owner signs up the TTL is dropped and the site becomes permanent. **One-time setup:
+[`app/worker/README.md`](../../app/worker/README.md).** Backend env: `HOSTING_ENGINE=cloudflare` +
+`CLOUDFLARE_ACCOUNT_ID` / `CLOUDFLARE_API_TOKEN` (Workers KV Edit) / `CLOUDFLARE_KV_NAMESPACE_ID` /
+`CLOUDFLARE_PREVIEW_HOST`. (`HOSTING_ENGINE=local` still serves previews from the box for dev.)
 
 ## Custom domains for customers (Premium)
 

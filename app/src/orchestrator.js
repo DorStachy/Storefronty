@@ -130,7 +130,9 @@ const HANDLERS = {
     const facts = [contract.shopName, contract.contact?.phone].filter(Boolean);
     const qa = await qaCheck({ htmlPath: built.htmlPath, mustInclude: facts });
     if (!qa.ok) { db.setStatus(lead.id, 'needs_human', { reason: 'qa_failed', issues: qa.issues.map((i) => i.type) }); return; }
-    db.addSite(lead.id, { slug: built.slug, engine: built.engine, htmlPath: built.htmlPath });
+    // Cache the { contract, design } the site was built from so a paid Pro/Premium upgrade can regenerate
+    // the SAME bespoke site at the richer tier (motion / WebGL / forms) with no second Opus call.
+    db.addSite(lead.id, { slug: built.slug, engine: built.engine, htmlPath: built.htmlPath, spec: JSON.stringify({ contract, design }) });
     // Rebuild succeeded → advance through 'editing' (the state machine's edit edge) to the approval
     // gate. Transition only now (not before the work) so a mid-rebuild failure leaves the lead on
     // 'replied' to retry, never stranded on 'editing' with no handler.

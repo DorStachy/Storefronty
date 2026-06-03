@@ -30,4 +30,6 @@ export const api = {
   topups: () => req('GET', '/api/topups'),
   checkout: (plan) => req('POST', '/api/billing/checkout', { plan }),
   topup: (pack) => req('POST', '/api/billing/topup', { pack }),
+  setDomain: (domain) => req('POST', '/api/domain', { domain }),
+  verifyDomain: () => req('GET', '/api/domain/verify'),
 };

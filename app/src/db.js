@@ -85,6 +85,12 @@ export function openDatabase(path) {
   try { db.exec('ALTER TABLE sites ADD COLUMN expires_at TEXT'); } catch { /* column already present */ }
   try { db.exec('ALTER TABLE change_requests ADD COLUMN images TEXT'); } catch { /* present */ }
   try { db.exec('ALTER TABLE accounts ADD COLUMN extra_changes INTEGER DEFAULT 0'); } catch { /* present */ }
+  // The serialized { contract, design } the v3 site was built from — lets us regenerate the SAME site
+  // at a richer tier (Pro/Premium) on purchase without another Opus call. Null for legacy/cold sites.
+  try { db.exec('ALTER TABLE sites ADD COLUMN spec TEXT'); } catch { /* present */ }
+  // Custom domain (Premium): the owner-supplied hostname + its verification status (none|pending|verified).
+  try { db.exec('ALTER TABLE accounts ADD COLUMN custom_domain TEXT'); } catch { /* present */ }
+  try { db.exec("ALTER TABLE accounts ADD COLUMN domain_status TEXT DEFAULT 'none'"); } catch { /* present */ }
 
   let inTx = false;          // re-entry guard for nested transaction() calls
 
@@ -174,9 +180,9 @@ export function openDatabase(path) {
       !!db.prepare('SELECT 1 FROM suppressions WHERE email = ?').get((email || '').toLowerCase().trim()),
 
     addSite(leadId, s) {
-      const info = db.prepare(`INSERT INTO sites (lead_id,slug,engine,html_path,screenshot_path,preview_url,version,created_at)
-        VALUES (?,?,?,?,?,?,?,?)`).run(leadId, s.slug ?? null, s.engine ?? null, s.htmlPath ?? null,
-        s.screenshotPath ?? null, s.previewUrl ?? null, s.version ?? 1, now());
+      const info = db.prepare(`INSERT INTO sites (lead_id,slug,engine,html_path,screenshot_path,preview_url,version,spec,created_at)
+        VALUES (?,?,?,?,?,?,?,?,?)`).run(leadId, s.slug ?? null, s.engine ?? null, s.htmlPath ?? null,
+        s.screenshotPath ?? null, s.previewUrl ?? null, s.version ?? 1, s.spec ?? null, now());
       return Number(info.lastInsertRowid);
     },
     setSocials(id, socials) {
@@ -189,11 +195,16 @@ export function openDatabase(path) {
     },
 
     getSiteForLead: (leadId) => db.prepare('SELECT * FROM sites WHERE lead_id = ? ORDER BY id DESC').get(leadId),
+    getSiteBySlug: (slug) => db.prepare('SELECT * FROM sites WHERE slug = ? ORDER BY id DESC').get(slug),
     setSitePreview: (siteId, url) => db.prepare('UPDATE sites SET preview_url = ? WHERE id = ?').run(url, siteId),
     setSiteScreenshot: (siteId, path) => db.prepare('UPDATE sites SET screenshot_path = ? WHERE id = ?').run(path, siteId),
     // Mark a site live at a public URL with an expiry (the 48h preview window).
     setSiteLive: (siteId, { previewUrl, expiresAt }) =>
       db.prepare('UPDATE sites SET preview_url = ?, expires_at = ? WHERE id = ?').run(previewUrl, expiresAt ?? null, siteId),
+    // Drop a lead's current-site 48h trial expiry → permanent. Called when a plan is PAID (claiming
+    // alone keeps the site a 48h trial). Targets the newest site row for the lead.
+    setSitePermanent: (leadId) =>
+      db.prepare('UPDATE sites SET expires_at = NULL WHERE id = (SELECT id FROM sites WHERE lead_id = ? ORDER BY id DESC LIMIT 1)').run(leadId),
 
     addMessage(leadId, m) {
       const info = db.prepare(`INSERT INTO messages (lead_id,direction,type,subject,body,provider_id,created_at)
@@ -217,6 +228,9 @@ export function openDatabase(path) {
     markFreeChangeUsed: (id) => db.prepare('UPDATE accounts SET free_change_used = 1 WHERE id = ?').run(id),
     addExtraChanges: (id, n) => db.prepare('UPDATE accounts SET extra_changes = COALESCE(extra_changes,0) + ? WHERE id = ?').run(n, id),
     consumeExtraChange: (id) => db.prepare('UPDATE accounts SET extra_changes = MAX(0, COALESCE(extra_changes,0) - 1) WHERE id = ?').run(id),
+    // Custom domain (Premium): store the owner's hostname (status → 'pending') and update verification.
+    setCustomDomain: (id, domain) => db.prepare("UPDATE accounts SET custom_domain = ?, domain_status = 'pending' WHERE id = ?").run(domain ?? null, id),
+    setDomainStatus: (id, status) => db.prepare('UPDATE accounts SET domain_status = ? WHERE id = ?').run(status, id),
 
     addChangeRequest({ accountId, leadId, body, kind = 'change', images = null }) {
       const info = db.prepare(`INSERT INTO change_requests (account_id,lead_id,body,kind,status,images,created_at)

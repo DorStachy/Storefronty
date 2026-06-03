@@ -36,6 +36,8 @@
 
 ## Phase 1 — Stage 2 "Wow-Build" (bespoke, grounded site generation)
 
+**Status:** ✅ **IMPLEMENTED + committed** (`6a7a404`, 281 tests) via an 8-agent Opus workflow + live verification. Two **live-only bugs** caught & fixed (offline tests inject a fake transport, so they couldn't): Opus 4.8 deprecated `temperature` → HTTP 400; `postJson`'s 12s timeout is too short for Opus → 90s. Both would have silently shipped the deterministic fallback for **every** site. Live Opus output verified excellent (tailored copy + self-art-directed design). ⬜ Pending: visual polish (the no-photo hero; a with-real-photos pass).
+
 **Flow step:** #6 — after the owner replies, generate the gorgeous tailored site (the conversion artifact the customer plays with before paying).
 
 **Decisions locked (this session):**
@@ -56,9 +58,41 @@
 
 ---
 
-## Phase 2 — (next flow step — to be defined)
+## Phase 2 — Post-claim portal + the tiered "living site" upsell (in discussion)
 
-*We walk the next step together; the decisions + improvements land here.*
+**Flow step:** #9–#12 — what the customer experiences after clicking the live link, signing in with Google, and becoming an owner.
+
+**Captured requirements (this session):**
+- **Claim = register + 1 free change (a TRIAL, not the site):** clicking claim creates the account (Google) + grants **one free change** so they taste the service. **They do NOT keep the website until they choose (pay for) a plan.** No permanent free tier — the free 48h preview + register + 1 change is the hook; **Starter $29 is the entry paid tier that keeps the (calm) site live.** ⚠️ **CHANGES current behavior:** today claim drops the 48h TTL → permanent-free (`keepPreview`/`stopPreviewExpiry`); under this model claim keeps it a TRIAL preview, and only **buying a plan** makes it permanent.
+- **"Add to Google" activation (conversion hack):** a dashboard card prompts the owner to set their **Google Business Profile** website field to the 48h preview URL → real customers click it → they *feel* the site working on their real listing → FOMO to keep it → convert. ⚠️ Real customers may click it, so the **expired state must degrade gracefully** (business basics / "coming soon," NOT a salesy page); the dashboard warns *"pick a plan before 48h so the link stays live."* Can also be seeded in Email 2.
+- **Portal "view my live site" link:** a button to open the site standalone in a new tab. *(User said a temporary ~14h link — CONFIRM duration + purpose vs the 48h preview.)*
+- **The "living site" — tiered richness IS the product ladder (the upsell engine):**
+  - **Base (free/Starter, incl. the 48h preview):** high-quality *design* — real photos, sharp grounded copy, beautiful modern layout — but **calm**: minimal motion, no 3D, single page, self-contained. Wins the reply/claim on design + "this is my business, free." ← Phase 1's wow-build produces THIS.
+  - **Pro:** the site comes *alive* — scroll-reveal animations, smooth scroll, tasteful CSS-3D, an extra page/section (+ lead forms, B-lite).
+  - **Premium:** the showpiece — real WebGL/Spline 3D, cinematic scroll, a full **catalogue**, multi-page (+ ordering/reservations B-full + custom domain).
+  - **Upsell mechanism:** the portal shows **2 hand-designed showcase demo sites — one Pro, one Premium** — *generic* (a demo business, NOT the customer's), built ONCE and reused for all customers. They see how stunning each tier is → they upgrade. We generate the customer's OWN animated/3D site **only when they actually pay** (no per-customer preview generation = no wasted spend). Bonus: the 2 showcases double as marketing assets. **Reserving the motion/3D for paid is the whole point — give it away free and no one upgrades.**
+- **Stacks with the functional tiering:** Pro also = lead forms (B-lite); Premium also = ordering/reservations (B-full) + custom domain. Richness ladder + functional ladder compound.
+
+**Decisions locked (corrected — richness is the upgrade ladder, NOT a freebie):**
+- ✅ **Free base / 48h preview = high-quality but CALM** — beautiful design, real photos, great copy; **a touch of tasteful subtle polish** (gentle scroll fade-ins, nothing showy); no 3D, single page, self-contained. Putting the real animations/3D on the free site would gut the upsell.
+- ✅ **Animation = Pro; real WebGL 3D + catalogue + multi-page = Premium.** Upsell via **2 fixed, hand-built showcase sites (one Pro, one Premium), generic + reused for ALL customers** — cheaper than per-customer preview generation AND higher-quality (we polish 2 sites to perfection); they double as marketing assets. The customer's real upgraded site is generated only on purchase.
+- ✅ **Phase 1 unchanged** — its wow-build produces the polished, calm, self-contained base (NOT "alive for everyone"; the earlier amendment is reverted).
+- ✅ **Hosting** — base stays self-contained KV; richer hosting (Fly / Pages + R2) lives with the Pro-motion / Premium-WebGL phases (post-purchase).
+
+- ✅ **The 2 showcase sites = ORIGINAL, not copied** — inspired by Awwwards/Land-book/Mobbin/Dribbble aesthetics but original work (copying a specific designer's site = copyright + brand risk for a company that *sells* websites). Generic content (barbershop = Pro feel, cafe/restaurant = Premium feel). Built ONCE — AI-generated (≈ free, same capability as the wow-build) or adapted from a permissively-licensed template.
+
+- ✅ **Showcase demos + "view my site" = simple one-page routes on our OWN portal/domain/machine (Fly)**, opened in a new tab. No separate temporary/14h-link infra (that idea is dropped — over-engineered).
+
+- ✅ **Showcase directions chosen** — **Pro** = *Foodie Restaurant* vibe (xgenious: warm, friendly, food-forward, light/clean); **Premium** = *Nixtio – Modern French Dining* vibe (dark, candle-lit, cinematic, elegant serif). Generic restaurant content; build ORIGINAL sites channeling these vibes (NOT copies). Reference shots saved from Dribbble; pull full detail at build time.
+
+**Still open:**
+- **Pro vs Premium exact levels** — settled when we design those tiers' own phases.
+
+---
+
+## Phase 3 — (next flow step — to be defined)
+
+*We continue walking; the decisions + improvements land here.*
 
 ---
 
