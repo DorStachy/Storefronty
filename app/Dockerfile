@@ -6,9 +6,10 @@ FROM node:22-bookworm-slim
 
 WORKDIR /app
 
-# Install deps first (better layer caching).
-COPY package.json package-lock.json ./
-RUN npm ci --omit=dev
+# Install deps first (better layer caching). ci when the lockfile is in sync, else install (so adding
+# a dep to package.json without regenerating the lock still builds).
+COPY package*.json ./
+RUN npm ci --omit=dev || npm install --omit=dev
 
 # The headless browser for the screenshotter + QA gate (+ its system libs).
 RUN npx playwright install --with-deps chromium
@@ -18,7 +19,8 @@ COPY . .
 ENV NODE_ENV=production \
     PORT=8080 \
     DB_PATH=/data/storefronty.db \
-    HOSTING_ENGINE=local
+    HOSTING_ENGINE=local \
+    CHROMIUM_NO_SANDBOX=1
 
 VOLUME /data
 EXPOSE 8080

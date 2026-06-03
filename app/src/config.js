@@ -62,4 +62,13 @@ export const config = {
     },
   },
   google: { clientId: E.GOOGLE_CLIENT_ID || '', clientSecret: E.GOOGLE_CLIENT_SECRET || '' },
+  // Free 48h preview hosting on Cloudflare KV: each built site is published as one self-contained HTML
+  // with a native 48h TTL (HOSTING_ENGINE=cloudflare). Needs the account id + an API token with KV
+  // write + the KV namespace id; PREVIEW_HOST is the Worker that serves them (…workers.dev).
+  cloudflare: {
+    accountId: E.CLOUDFLARE_ACCOUNT_ID || '',
+    apiToken: E.CLOUDFLARE_API_TOKEN || '',
+    kvNamespace: E.CLOUDFLARE_KV_NAMESPACE_ID || '',
+    previewHost: (E.CLOUDFLARE_PREVIEW_HOST || '').replace(/\/$/, ''),
+  },
 };

@@ -27,7 +27,9 @@ export async function qaCheck({
 
   if (!launch) {
     const { chromium } = await import('playwright');
-    launch = () => chromium.launch({ headless: true });
+    // In a container (Fly/Docker) Chromium must run with --no-sandbox; opt in via CHROMIUM_NO_SANDBOX.
+    const args = process.env.CHROMIUM_NO_SANDBOX ? ['--no-sandbox', '--disable-dev-shm-usage'] : [];
+    launch = () => chromium.launch({ headless: true, args });
   }
 
   const issues = [];

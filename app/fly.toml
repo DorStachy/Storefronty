@@ -2,9 +2,10 @@
 # Deploy:  fly launch --no-deploy   (once, to create the app + volume)
 #          fly volumes create sf_data --size 1
 #          fly secrets set SIGN_SECRET=... GMAIL_USER=... GMAIL_APP_PASSWORD=... \
-#                          GEMINI_API_KEY=... ANTHROPIC_API_KEY=... \
-#                          STRIPE_SECRET_KEY=... STRIPE_WEBHOOK_SECRET=... \
-#                          GOOGLE_PLACES_KEY=... SERPER_API_KEY=...
+#                          GEMINI_API_KEY=... GOOGLE_PLACES_KEY=... SERPER_API_KEY=... \
+#                          GOOGLE_CLIENT_ID=... GOOGLE_CLIENT_SECRET=... \
+#                          CLOUDFLARE_ACCOUNT_ID=... CLOUDFLARE_API_TOKEN=... \
+#                          CLOUDFLARE_KV_NAMESPACE_ID=... CLOUDFLARE_PREVIEW_HOST=https://storefronty-previews.<acct>.workers.dev
 #          fly deploy
 app = "storefronty"
 primary_region = "iad"
@@ -15,16 +16,19 @@ primary_region = "iad"
 [env]
   PORT = "8080"
   DB_PATH = "/data/storefronty.db"
-  HOSTING_ENGINE = "local"
-  # Set these to your real domain once you have it (the reply-email links use PORTAL_BASE_URL):
+  HOSTING_ENGINE = "cloudflare"    # 48h preview sites → Cloudflare KV (free)
+  CHROMIUM_NO_SANDBOX = "1"        # Playwright Chromium inside the container
+  TICK_INTERVAL_MS = "60000"       # advance the pipeline every 60s (in-process scheduler)
+  POLL_INTERVAL_MS = "120000"      # read Gmail replies every 120s
+  BRAND = "Storefronty"
+  # Set these to the real URL after the first deploy (reply-email + claim links use them):
   PUBLIC_BASE_URL = "https://storefronty.fly.dev"
   PORTAL_BASE_URL = "https://storefronty.fly.dev"
-  BRAND = "Storefronty"
 
 [http_service]
   internal_port = 8080
   force_https = true
-  auto_stop_machines = "suspend"
+  auto_stop_machines = "off"       # always-on so the scheduler keeps ticking + polling
   auto_start_machines = true
   min_machines_running = 1
 

@@ -10,6 +10,8 @@ import { canTransition } from '../states.js';
 import { shotsFromDir } from '../screenshot/index.js';
 import { googleAuthUrl, googleLogin } from '../auth/google.js';
 import { verifyPaddleWebhook, parsePaddleEvent } from '../portal/paddle.js';
+import { PUBLIC_DIR } from '../builder/build2.js';
+import { keepPreview } from '../deployer/cloudflare.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const UPLOADS = resolve(here, '..', '..', 'data', 'uploads'); // private (data/ is gitignored)
@@ -67,6 +69,17 @@ function shotUrls(site, config) {
 
 // Payment config the SPA needs (provider + whether it's configured). Only PUBLIC values — the
 // Paddle client-side token + price IDs are safe in the browser; the API key/webhook secret are not exposed.
+// When an owner claims/signs up for their site, drop the preview's 48h TTL so it stays live for good
+// (Cloudflare hosting only; a no-op locally + in tests). Never blocks or breaks signup if KV fails.
+async function stopPreviewExpiry(db, leadId, config) {
+  const cf = config.cloudflare || {};
+  if (!leadId || (config.hosting && config.hosting.engine) !== 'cloudflare' || !cf.kvNamespace) return;
+  try {
+    const site = db.getSiteForLead(leadId);
+    if (site && site.slug) await keepPreview(join(PUBLIC_DIR, site.slug), site.slug, { accountId: cf.accountId, apiToken: cf.apiToken, namespaceId: cf.kvNamespace });
+  } catch { /* the account is created regardless — the preview can be re-kept later */ }
+}
+
 function payConfig(config) {
   const provider = (config.payments && config.payments.provider) || 'none';
   if (provider === 'paddle') {
@@ -110,6 +123,7 @@ export async function handleApi({ method, path, body = {}, cookies = {}, db, con
     const leadId = claim && claim.kind === 'claim' ? claim.leadId : null;
     const r = createAccount(db, { email: body.email, password: body.password, leadId });
     if (!r.ok) return json(400, { error: r.error });
+    await stopPreviewExpiry(db, leadId, config);
     return json(200, { account: safeAccount(r.account) }, { 'set-cookie': sessionCookie(r.account.id, config) });
   }
   if (path === '/api/auth/login' && method === 'POST') {
@@ -268,5 +282,6 @@ export async function handleGoogleCallback({ query, db, config }) {
     const leadId = claim && claim.kind === 'claim' ? claim.leadId : null;
     account = db.getAccount(db.addAccount({ leadId, email: profile.email, passwordHash: null, authProvider: 'google' }));
   }
+  await stopPreviewExpiry(db, account.lead_id, config);
   return redirect302('/dashboard', { 'set-cookie': sessionCookie(account.id, config) });
 }

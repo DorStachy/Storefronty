@@ -1,0 +1,15 @@
+name = "storefronty-previews"
+main = "preview.js"
+compatibility_date = "2026-01-01"
+workers_dev = true
+
+# The KV namespace the backend writes previews into. Create it once:
+#   wrangler kv namespace create PREVIEWS
+# then paste the returned id below AND into the backend env as CLOUDFLARE_KV_NAMESPACE_ID.
+kv_namespaces = [
+  { binding = "PREVIEWS", id = "PASTE_KV_NAMESPACE_ID_HERE" }
+]
+
+[vars]
+# Where the expired-preview "Claim your site" button points (your deployed portal's /login).
+PORTAL_URL = "https://CHANGE-ME.fly.dev/login"

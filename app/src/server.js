@@ -98,4 +98,27 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
     // Customer preview sites (app/public).
     await serveFrom(res, PUBLIC_DIR, req.url);
   }).listen(PORT, () => console.log(`\n  Storefronty → http://localhost:${PORT}\n`));
+
+  // In-process scheduler (production): advance the pipeline + read Gmail replies on an interval, so the
+  // box runs itself with no external cron. Opt-in via env (0/unset = off → dev + tests never tick).
+  const tickMs = Number(process.env.TICK_INTERVAL_MS || 0);
+  if (tickMs > 0) {
+    const runTick = async () => {
+      try { const { tick } = await import('./orchestrator.js'); const acted = await tick(db); if (acted.length) console.log(`tick: advanced ${acted.length} lead(s)`); }
+      catch (e) { console.error('tick error:', e.message || e); }
+    };
+    setInterval(runTick, tickMs);
+    runTick();
+  }
+  const pollMs = Number(process.env.POLL_INTERVAL_MS || 0);
+  if (pollMs > 0 && config.mail.user && config.mail.pass) {
+    const runPoll = async () => {
+      try {
+        const [{ poll }, { handleReply }] = await Promise.all([import('./inbox/index.js'), import('./orchestrator.js')]);
+        const r = await poll(db, config, (lead, text) => handleReply(db, lead, text));
+        if (r.polled) console.log(`inbox: handled ${r.polled} repl${r.polled === 1 ? 'y' : 'ies'}`);
+      } catch (e) { console.error('poll error:', e.message || e); }
+    };
+    setInterval(runPoll, pollMs);
+  }
 }
