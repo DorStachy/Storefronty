@@ -27,7 +27,7 @@ export const slugFor = (lead) => slugify(lead && lead.name) || `lead-${(lead && 
 // (fresh build from a fill) and the Phase-2 reply-edit flow (an Opus-revised contract).
 // `images` = the shop's own photos as relative URLs under the slug dir (e.g. 'img/photo-0.jpg').
 // Empty → the theme's decorative fallback is used.
-export async function writeSite(lead, contract, { theme, design, images = [], tier = 'starter' } = {}) {
+export async function writeSite(lead, contract, { theme, design, images = [], tier = 'starter', apiBase = '' } = {}) {
   const r = validateContract(contract);
   if (!r.ok) throw new Error(`contract invalid: ${r.errors.join(', ')}`);
   const slug = slugFor(lead);
@@ -41,7 +41,7 @@ export async function writeSite(lead, contract, { theme, design, images = [], ti
     // `tier` (starter|pro|premium) selects the richness on the SAME engine: Starter is byte-stable vs
     // the original; Pro/Premium add motion + a lead form (+ WebGL hero/catalogue/order form on Premium).
     const d = validateDesignSpec(design);
-    const { html, css } = await renderSiteV3(r.value, d, { images, tier });
+    const { html, css } = await renderSiteV3(r.value, d, { images, tier, slug, apiBase });
     writeFileSync(join(dir, 'theme.css'), css);
     writeFileSync(htmlPath, html);
     return { engine: 'theme-v3', slug, layout: d.layout, theme: 'v3', tier, htmlPath };

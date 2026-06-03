@@ -126,7 +126,7 @@ const HANDLERS = {
   replied: async (db, lead) => {
     const change = latestChange(db, lead.id);
     const { contract, design } = await applyArtDirection(lead, { change, photos: [] });
-    const built = await writeSite(lead, contract, { design, images: await leadImages(lead, config) });
+    const built = await writeSite(lead, contract, { design, images: await leadImages(lead, config), apiBase: config.portalBaseUrl });
     const facts = [contract.shopName, contract.contact?.phone].filter(Boolean);
     const qa = await qaCheck({ htmlPath: built.htmlPath, mustInclude: facts });
     if (!qa.ok) { db.setStatus(lead.id, 'needs_human', { reason: 'qa_failed', issues: qa.issues.map((i) => i.type) }); return; }
@@ -147,7 +147,11 @@ const HANDLERS = {
   // two-link reply email (live site + signed account-claim link).
   approved: async (db, lead) => {
     const site = db.getSiteForLead(lead.id);
-    const { previewUrl, expiresAt } = await deploy(lead, site, config);
+    // If the owner is already on an active paid plan (e.g. a later change request), keep the site
+    // PERMANENT — don't re-stamp a 48h TTL. Pre-purchase this is always a 48h trial.
+    const acct = db.getAccountByLead(lead.id);
+    const permanent = !!(acct && acct.plan_status === 'active');
+    const { previewUrl, expiresAt } = await deploy(lead, site, config, { permanent });
     db.setSiteLive(site.id, { previewUrl, expiresAt });
     const recipient = config.mail.testRecipient || lead.email;
     if (!recipient) { db.setStatus(lead.id, 'needs_human', { reason: 'no recipient for reply email' }); return; }

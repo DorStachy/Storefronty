@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { escapeHtml } from '../util/html.js';
 import { designToCss } from '../design/css.js';
 import { googleFontsHref } from '../design/spec.js';
-import { leadFormHtml, catalogueHtml, orderFormHtml, heroCanvasHtml, heroScriptHtml } from '../design/tier.js';
+import { leadFormHtml, catalogueHtml, orderFormHtml, heroCanvasHtml, heroScriptHtml, formScriptHtml } from '../design/tier.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const THEME_DIR = resolve(here, '..', '..', 'site', 'themes');
@@ -60,7 +60,7 @@ export async function renderContract(contract, theme = 'editorial', { cssHref = 
 
 // Token-driven render: same content tokens as renderContract, but the look comes from the DesignSpec
 // (generated CSS + Google-Fonts link). Returns { html, css } so writeSite can write the generated CSS.
-export async function renderSiteV3(contract, design, { images = [], tier = 'starter' } = {}) {
+export async function renderSiteV3(contract, design, { images = [], tier = 'starter', slug = '', apiBase = '' } = {}) {
   const tpl = await readFile(resolve(THEME_DIR, 'v3', 'template.html'), 'utf8');
   const c = contract;
   const imgs = (Array.isArray(images) ? images : []).filter(Boolean);
@@ -88,8 +88,10 @@ export async function renderSiteV3(contract, design, { images = [], tier = 'star
     heroCanvasHtml: isPremium ? heroCanvasHtml() : '',
     heroScriptHtml: isPremium ? heroScriptHtml(design) : '',
     catalogueHtml: isPremium ? catalogueHtml(c) : '',
-    leadFormHtml: isPro || isPremium ? leadFormHtml(c) : '',
-    orderFormHtml: isPremium ? orderFormHtml(c) : '',
+    leadFormHtml: isPro || isPremium ? leadFormHtml(c, { slug, apiBase }) : '',
+    orderFormHtml: isPremium ? orderFormHtml(c, { slug, apiBase }) : '',
+    // The form-submit script (cross-origin JSON POST + thank-you) — emitted whenever a form exists.
+    formScriptHtml: isPro || isPremium ? formScriptHtml(apiBase) : '',
   };
   return { html: fill(tpl, map), css: designToCss(design, { tier }) };
 }

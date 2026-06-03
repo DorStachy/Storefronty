@@ -101,9 +101,12 @@ test('pro adds the lead-capture form + reveal/tilt CSS, stays self-contained, no
   assert.match(css, /@media \(prefers-reduced-motion: no-preference\)/, 'motion gated for reduced-motion safety');
   assert.match(css, /perspective\(/, 'CSS-3D tilt present');
 
-  // Pro does NOT get the premium-only features.
+  // Pro has the inline form-submit script (keeps the visitor on-site), but stays self-contained — no
+  // external <script src> and none of the premium-only features.
+  assert.match(html, /<script>/, 'pro has the inline form-submit script');
+  assert.doesNotMatch(html, /<script[^>]+src=/i, 'no external script src in pro');
   assert.doesNotMatch(html, /hero-gl/, 'no WebGL canvas in pro');
-  assert.doesNotMatch(html, /<script/i, 'no inline script in pro (CSS-only)');
+  assert.doesNotMatch(html, /getContext\('webgl2'/, 'no WebGL in pro');
   assert.doesNotMatch(html, /name="kind" value="order"/, 'no order form in pro');
   assert.doesNotMatch(html, /id="catalogue"/, 'no catalogue grid in pro');
 

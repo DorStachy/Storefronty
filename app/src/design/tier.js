@@ -27,13 +27,16 @@ const shopName = (contract) => (contract && contract.shopName) || 'this business
 // A calm "get in touch" section. Native POST to /api/lead (works with zero JS, fully self-contained);
 // the hidden `kind` lets the API distinguish a general enquiry from an order. The honeypot field is a
 // quiet bot trap (visually hidden via .hp in the tier CSS; real users never fill it).
-export function leadFormHtml(contract) {
+export function leadFormHtml(contract, opts = {}) {
   const name = e(shopName(contract));
+  const action = e(`${String(opts.apiBase || '').replace(/\/$/, '')}/api/lead`);
+  const slug = e(opts.slug || '');
   return `<section id="contact-form" class="lead" data-reveal>
 <div class="form-head"><p class="eyebrow">Get in touch</p><h2>Say hello to ${name}</h2>
 <p class="muted">Tell us what you're after — we'll get back to you.</p></div>
-<form class="contact-form" action="/api/lead" method="post">
+<form class="contact-form" action="${action}" method="post">
 <input type="hidden" name="kind" value="lead">
+<input type="hidden" name="site" value="${slug}">
 <label>Your name<input name="name" type="text" autocomplete="name" required placeholder="Jane Doe"></label>
 <label>Email<input name="email" type="email" autocomplete="email" required placeholder="jane@example.com"></label>
 <label>Message<textarea name="message" rows="4" required placeholder="How can we help?"></textarea></label>
@@ -64,8 +67,10 @@ export function catalogueHtml(contract) {
 // A booking surface — choose an item (from services), pick a date/time + party size, leave contact
 // details. Native POST to /api/lead with kind=order so the API routes it as an order/reservation. The
 // item <select> is populated from services; with none, a free-text note still lets a customer order.
-export function orderFormHtml(contract) {
+export function orderFormHtml(contract, opts = {}) {
   const items = services(contract);
+  const action = e(`${String(opts.apiBase || '').replace(/\/$/, '')}/api/lead`);
+  const slug = e(opts.slug || '');
   const options = items.length
     ? items.map((s) => `<option value="${e(s.name)}">${e(s.name)}${s.price ? ` — ${e(s.price)}` : ''}</option>`).join('')
     : '';
@@ -75,8 +80,9 @@ export function orderFormHtml(contract) {
   return `<section id="order" class="order" data-reveal>
 <div class="form-head"><p class="eyebrow">Reserve &amp; order</p><h2>Book your table or place an order</h2>
 <p class="muted">Pick a time and we'll have it ready.</p></div>
-<form class="order-form" action="/api/lead" method="post">
+<form class="order-form" action="${action}" method="post">
 <input type="hidden" name="kind" value="order">
+<input type="hidden" name="site" value="${slug}">
 <div class="order-grid">
 ${itemField}
 <label>Date<input name="date" type="date"></label>
@@ -203,6 +209,36 @@ export function heroScriptHtml(design) {
     else if (!raf) raf = requestAnimationFrame(frame);
   });
   raf = requestAnimationFrame(frame);
+})();
+</script>`;
+}
+
+// --- Pro + Premium: form submit handler -----------------------------------------------------------
+// The lead/order forms POST to /api/lead, which lives on the portal/API host (the generated preview is
+// served cross-origin from Cloudflare KV). This tiny self-contained script intercepts the submit, sends
+// JSON to the ABSOLUTE API url (the only host that has /api/lead), and swaps in a thank-you so the
+// visitor stays on the site instead of navigating to raw JSON. The honeypot is respected. apiBase is our
+// own trusted config value, injected via JSON.stringify (never raw). Emitted only when a form exists.
+export function formScriptHtml(apiBase = '') {
+  const api = `${String(apiBase || '').replace(/\/$/, '')}/api/lead`;
+  return `<script>
+(() => {
+  const API = ${JSON.stringify(api)};
+  document.querySelectorAll('form.contact-form, form.order-form').forEach((form) => {
+    form.addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const data = {}; new FormData(form).forEach((v, k) => { data[k] = v; });
+      if (data.company) return;                 // honeypot → drop silently
+      const btn = form.querySelector('button[type=submit]');
+      if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
+      try {
+        await fetch(API, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(data) });
+        form.innerHTML = '<p class="form-thanks">Thanks — we\\'ll be in touch shortly.</p>';
+      } catch (e) {
+        if (btn) { btn.disabled = false; btn.textContent = 'Try again'; }
+      }
+    });
+  });
 })();
 </script>`;
 }

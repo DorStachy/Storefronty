@@ -99,7 +99,7 @@ async function regenerateAtTier(db, leadId, tier, config) {
     if (!spec || !spec.contract) return;
     const lead = db.getLead(leadId);
     const { writeSite } = await import('../builder/build2.js');
-    const built = await writeSite(lead, spec.contract, { design: spec.design, tier, images: existingImages(site.slug) });
+    const built = await writeSite(lead, spec.contract, { design: spec.design, tier, images: existingImages(site.slug), apiBase: config.portalBaseUrl });
     // New (permanent — expires_at defaults NULL) site row carrying the spec + the live preview URL.
     db.addSite(leadId, { slug: built.slug, engine: built.engine, htmlPath: built.htmlPath, spec: site.spec, previewUrl: site.preview_url });
     await makePreviewPermanentKv(db, leadId, config);
@@ -121,19 +121,23 @@ function advanceLeadToPaid(db, leadId) {
 // site at the richer tier. Shared by the Stripe + Paddle webhooks AND the stub provider, so flipping to
 // live Paddle changes nothing about how access is granted. Never throws.
 async function applyPaidPlan(db, accountId, { plan, status = 'active', customerId = null }, config) {
-  const active = status === 'active';
-  db.setAccountPlan(accountId, { plan, planStatus: active ? 'active' : 'canceled', stripeCustomer: customerId });
-  if (!active) return;
+  // Whole body guarded (incl. setAccountPlan) so a transient DB error never throws back to a signed
+  // webhook (which would 500 → provider retries → duplicate side effects). We record + return instead.
   try {
+    const active = status === 'active';
+    db.setAccountPlan(accountId, { plan, planStatus: active ? 'active' : 'canceled', stripeCustomer: customerId });
+    if (!active) return;
     const account = db.getAccount(accountId);
     const leadId = account && account.lead_id;
     if (!leadId) return;
-    db.setSitePermanent(leadId);                                    // DB: drop the trial expiry
-    if (plan === 'pro' || plan === 'premium') await regenerateAtTier(db, leadId, plan, config); // richer rebuild + permanent re-publish
-    else await makePreviewPermanentKv(db, leadId, config);          // starter: keep the current calm site permanent
+    // (Re)publish FIRST, then mark the DB permanent — so the DB never claims a permanence the hosting
+    // doesn't have. Pro/Premium rebuild richer; Starter keeps the current calm site.
+    if (plan === 'pro' || plan === 'premium') await regenerateAtTier(db, leadId, plan, config);
+    else await makePreviewPermanentKv(db, leadId, config);
+    db.setSitePermanent(leadId);                 // entitlement: a paid site's newest row is permanent
     advanceLeadToPaid(db, leadId);
   } catch (e) {
-    db.recordEvent(null, 'apply_paid_error', { accountId, message: String(e.message || e) });
+    db.recordEvent(null, 'apply_paid_error', { accountId, message: String((e && e.message) || e) });
   }
 }
 
@@ -155,7 +159,8 @@ async function verifyDomain(domain, config) {
     const dns = await import('node:dns/promises');
     for (const host of [domain, `www.${domain}`]) {
       const cnames = await dns.resolveCname(host).catch(() => []);
-      if (cnames.some((c) => String(c).toLowerCase().includes(target))) return true;
+      // Exact host or a subdomain of our target — NOT a substring (so "ourhost.attacker.com" can't pass).
+      if (cnames.some((c) => { const v = String(c).toLowerCase().replace(/\.$/, ''); return v === target || v.endsWith(`.${target}`); })) return true;
     }
     return false;
   } catch { return false; }
@@ -238,18 +243,22 @@ export async function handleApi({ method, path, body = {}, cookies = {}, db, con
     if (method === 'OPTIONS') return { status: 204, headers: cors, body: '' };
     if (method !== 'POST') return json(405, { error: 'method not allowed' }, cors);
     try {
-      const site = body.site ? db.getSiteBySlug(String(body.site)) : null;
+      if (body.company || body._hp) return json(200, { ok: true }, cors); // honeypot → silently drop bots
+      const clean = (v, n) => String(v || '').trim().slice(0, n); // trim + cap (body is encoded by the mailer; subject uses no attacker data) // strip control/CRLF
+      const site = body.site ? db.getSiteBySlug(clean(body.site, 80)) : null;
       const lead = site && site.lead_id ? db.getLead(site.lead_id) : null;
-      const name = String(body.name || '').slice(0, 120);
-      const email = String(body.email || '').slice(0, 160);
-      const message = String(body.message || body.note || body.details || '').slice(0, 2000);
+      const name = clean(body.name, 120);
+      const emailRaw = clean(body.email, 160);
+      const email = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(emailRaw) ? emailRaw : '';
+      const message = clean(body.message || body.note || body.details, 2000);
       const kind = body.kind === 'order' || body.kind === 'reservation' ? body.kind : 'lead';
       if (!name && !email && !message) return json(400, { error: 'tell us how to reach you' }, cors);
       if (lead) db.recordEvent(lead.id, 'site_lead', { kind, name, email, message });
       try {
         const { sendEmail } = await import('../mailer/index.js');
         const to = (lead && lead.email) || config.mail.testRecipient || config.mail.founderEmail;
-        if (to) await sendEmail({ to, subject: `New ${kind} from your website${lead ? ` — ${lead.name}` : ''}`, text: `Name: ${name}\nEmail: ${email}\nKind: ${kind}\n\n${message}` }, config);
+        const shop = lead ? lead.name : 'your website';
+        if (to) await sendEmail({ to, subject: clean(`New ${kind} from ${shop}`, 160), text: `Name: ${name}\nEmail: ${email || '(none)'}\nKind: ${kind}\n\n${message}` }, config);
       } catch { /* delivery best-effort */ }
       return json(200, { ok: true }, cors);
     } catch { return json(200, { ok: true }, cors); }
@@ -339,6 +348,7 @@ export async function handleApi({ method, path, body = {}, cookies = {}, db, con
     return json(200, { domain, status: 'pending', cname: domainCname(config) });
   }
   if (path === '/api/domain/verify' && method === 'GET') {
+    if (account.plan !== 'premium' || account.plan_status !== 'active') return json(402, { error: 'Custom domains are part of the Premium plan.', needsPlan: true });
     const acct = db.getAccount(account.id);
     if (!acct.custom_domain) return json(400, { error: 'no domain set yet' });
     const ok = await verifyDomain(acct.custom_domain, config);
