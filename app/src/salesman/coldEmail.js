@@ -48,17 +48,13 @@ export function composeColdEmail(lead, { shots = [], config }) {
   const bracket = labels.length ? `\n${labels.map((l) => `[ ${l} ]`).join('   ')}\n(screenshots attached)\n` : '\n';
   const text = `Hi ${first},
 
-My name's ${fromName} and I'm a web designer. I was looking at ${lead.name} online, saw you didn't have a website, and put one together to show you what it could look like. A few screenshots are below.
+My name's ${fromName} and I'm a web designer. I came across ${lead.name} on Google, saw you don't have a website yet, and built you a template to show what one could look like. A few screenshots are below.
 ${bracket}
-Everything on it is your real info: your hours, your ${v.servicesWord}, and the reviews people have left you on Google. I do these for local businesses because most don't have a proper site, and a good one makes a real difference to how many people ${v.action}.
+This is just a template, but it's built with your real info — your hours, your ${v.servicesWord}, and the reviews people have left you on Google — so you can picture it on your own business instead of some generic mock-up. I made it to show you I'm serious, and to see whether a website is something you'd actually want. A good one makes a real difference to how many people ${v.action}.
 
-If you'd want it, just reply and tell me what to change. The usual things people ask for:
-- send me as many photos as you'd like and I'll add them in — or if it's easier, I can set up a photoshoot for you
-- if you've got products or a menu, I can put together a proper menu or catalog page
-- change the colors, fonts, or layout
-- fix any of the wording, prices, or hours
+If it is, just reply and tell me how you picture it — the colors, the feel, anything you'd want. And send me photos: as many photos as you'd like of your space, your team, and your work. If you want it to really shine, take a few fresh ones — even a quick photoshoot on your phone — and send them over. Real photos make the biggest difference.
 
-I'll make those changes for you, so you can see I'm serious, and then send you a link to the real working site to click around and share. You're not signing up for anything.
+From there I'll build you the real, working site, send you a link to click around and share, and make any changes you ask for along the way. You're not signing up for anything, and it costs you nothing to take a look.
 
 Let me know what you think.
 
@@ -80,17 +76,11 @@ ${config.postalAddress} · Reply STOP to unsubscribe`;
     .join('');
   const html = `<div style="font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#262626;max-width:600px">
 <p>Hi ${e.first},</p>
-<p>My name's ${e.fromName} and I'm a web designer. I was looking at <b>${e.name}</b> online, saw you didn't have a website, and put one together to show you what it could look like. A few screenshots are below.</p>
+<p>My name's ${e.fromName} and I'm a web designer. I came across <b>${e.name}</b> on Google, saw you don't have a website yet, and built you a template to show what one could look like. A few screenshots are below.</p>
 ${imgs}
-<p>Everything on it is your real info: your hours, your ${e.services}, and the reviews people have left you on Google. I do these for local businesses because most don't have a proper site, and a good one makes a real difference to how many people ${e.action}.</p>
-<p>If you'd want it, just reply and tell me what to change. The usual things people ask for:</p>
-<ul style="margin:0 0 14px;padding-left:20px">
-<li>send me as many photos as you'd like and I'll add them in — or if it's easier, I can set up a photoshoot for you</li>
-<li>if you've got products or a menu, I can put together a proper menu or catalog page</li>
-<li>change the colors, fonts, or layout</li>
-<li>fix any of the wording, prices, or hours</li>
-</ul>
-<p>I'll make those changes for you, so you can see I'm serious, and then send you a link to the real working site to click around and share. You're not signing up for anything.</p>
+<p>This is just a template, but it's built with your real info — your hours, your ${e.services}, and the reviews people have left you on Google — so you can picture it on your own business instead of some generic mock-up. I made it to show you I'm serious, and to see whether a website is something you'd actually want. A good one makes a real difference to how many people ${e.action}.</p>
+<p>If it is, just reply and tell me how you picture it — the colors, the feel, anything you'd want. And send me photos: as many photos as you'd like of your space, your team, and your work. If you want it to really shine, take a few fresh ones — even a quick photoshoot on your phone — and send them over. Real photos make the biggest difference.</p>
+<p>From there I'll build you the real, working site, send you a link to click around and share, and make any changes you ask for along the way. You're not signing up for anything, and it costs you nothing to take a look.</p>
 <p>Let me know what you think.</p>
 <p>${e.fromName}<br>${e.brand} — websites for local businesses</p>
 <hr style="border:none;border-top:1px solid #eee;margin:18px 0">

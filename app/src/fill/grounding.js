@@ -37,6 +37,17 @@ function reviewSnippets(det) {
     .slice(0, 5);
 }
 
+// The verified social links the researcher stored on the lead (Instagram/Facebook/TikTok/…), as a flat
+// {platform: url} map. Many no-website shops live entirely on socials, so the site should link them.
+function parseSocials(lead) {
+  let s = lead && lead.socials;
+  if (typeof s === 'string') s = safeJson(s);
+  if (!s || typeof s !== 'object') return {};
+  const out = {};
+  for (const [k, v] of Object.entries(s)) if (v && String(v).trim()) out[String(k).toLowerCase()] = String(v).trim();
+  return out;
+}
+
 export function buildFactSheet(lead = {}) {
   const det = lead.details ? (typeof lead.details === 'string' ? safeJson(lead.details) : lead.details) : {};
   const niche = String(lead.niche || '').toLowerCase().trim();
@@ -58,6 +69,7 @@ export function buildFactSheet(lead = {}) {
     reviewCount: num(det.reviewCount),
     hours: parseHours(det),
     reviewSnippets: reviewSnippets(det),
+    socials: parseSocials(lead),
   };
 
   return { facts, allowedServices, sheet: renderSheet(facts, allowedServices) };
@@ -99,6 +111,11 @@ function renderSheet(facts, allowedServices) {
     for (const r of facts.reviewSnippets) L.push(`    "${r.text}"${r.author ? ` — ${r.author}` : ''}`);
   } else {
     L.push('- Review snippets: none provided (do not fabricate quotes or authors).');
+  }
+
+  const socialEntries = Object.entries(facts.socials || {});
+  if (socialEntries.length) {
+    L.push('- Social links (include these as links/icons, e.g. in the header or footer; use these EXACT URLs): ' + socialEntries.map(([k, v]) => `${k}: ${v}`).join(', '));
   }
 
   return L.join('\n');

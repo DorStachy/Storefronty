@@ -60,3 +60,16 @@ export async function writeSite(lead, contract, { theme, design, images = [], ti
 export async function buildSiteV2(lead, { fill = fillDeterministic, images = [] } = {}) {
   return writeSite(lead, await fill(lead), { images });
 }
+
+// Write a model-generated full HTML page (already sanitized by sanitizeSiteHtml) to the lead's slug
+// dir. The page inlines its own CSS (no theme.css) and references photos as img/photo-N.jpg; those
+// images already live in <slug>/img (from leadImages/portalPhotos) and inlineSite base64s them at
+// deploy, so the result is self-contained exactly like the token engine's output.
+export async function writeLlmSite(lead, { html } = {}) {
+  const slug = slugFor(lead);
+  const dir = join(PUBLIC_DIR, slug);
+  mkdirSync(dir, { recursive: true });
+  const htmlPath = join(dir, 'index.html');
+  writeFileSync(htmlPath, String(html || ''));
+  return { engine: 'llm-html', slug, htmlPath };
+}

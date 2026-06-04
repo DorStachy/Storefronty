@@ -4,12 +4,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="{{fontsHref}}" rel="stylesheet"><link href="{{cssHref}}" rel="stylesheet">
 </head><body data-layout="{{layout}}">
-<header class="hero">{{heroCanvasHtml}}{{heroImageHtml}}<div class="wrap"><p class="eyebrow">{{eyebrow}}</p><h1>{{shopName}}</h1><p class="tagline">{{tagline}}</p><p>{{ratingHtml}}</p><a class="btn" href="#contact">{{ctaLabel}}</a></div></header>
-<main class="wrap">
-<section id="about">{{aboutHtml}}</section>
-<section id="menu"><h2>What we offer</h2><div class="menu">{{servicesHtml}}</div></section>
-<section id="gallery"><div class="gallery">{{galleryHtml}}</div></section>{{catalogueHtml}}
-<section id="reviews">{{reviewsHtml}}</section>
-<section id="hours"><h2>Hours</h2><ul class="hours">{{hoursHtml}}</ul></section>
-<section id="contact"><h2>Visit</h2><div class="muted">{{contactHtml}}</div><a class="btn" href="#contact">{{ctaLabel}}</a></section>{{leadFormHtml}}{{orderFormHtml}}
-</main>{{heroScriptHtml}}{{formScriptHtml}}</body></html>
+{{navHtml}}
+<header class="hero">{{heroCanvasHtml}}{{heroImageHtml}}<div class="wrap"><p class="eyebrow">{{eyebrow}}</p><h1>{{shopName}}</h1><p class="tagline">{{tagline}}</p><div class="hero-meta">{{heroMetaHtml}}</div><div class="hero-actions"><a class="btn" href="{{ctaHref}}">{{ctaLabel}}</a><a class="btn-ghost" href="#about">Our story</a></div></div></header>
+<main>{{aboutHtml}}{{menuHtml}}{{galleryHtml}}{{catalogueHtml}}{{reviewsHtml}}{{infoHtml}}{{leadFormHtml}}{{orderFormHtml}}</main>
+{{footerHtml}}
+{{heroScriptHtml}}{{formScriptHtml}}</body></html>

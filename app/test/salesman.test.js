@@ -42,8 +42,8 @@ test('composeColdEmail = approved §5.6 copy, 3 inline screenshots, NO live link
   const { subject, html, text, attachments } = composeColdEmail({ name: 'Fade Theory', niche: 'barbershop' }, { shots, config: cfg });
   assert.equal(subject, 'a website for Fade Theory');
   assert.ok(text.includes("My name's Michael and I'm a web designer"));
-  assert.ok(text.includes("I'll make those changes for you, so you can see I'm serious"));
-  assert.ok(text.includes("You're not signing up for anything."));
+  assert.ok(text.includes("to show you I'm serious"));
+  assert.ok(text.includes("You're not signing up for anything"));
   assert.ok(!/https?:\/\//.test(text), 'the cold email carries NO live link (link only comes after a reply)');
   assert.ok(!/[\u{1F300}-\u{1FAFF}☀-➿←-⇿]/u.test(text), 'hand-typed: no emojis');
   assert.equal(attachments.length, 3); // 3 section screenshots attached
@@ -62,11 +62,12 @@ test('composeColdEmail per-niche variant: services/menu wording + action phrase'
   assert.ok(cafe.includes('how many people walk in.')); // 'walk in' (food), ends the sentence
 });
 
-test('composeColdEmail offers photos / a photoshoot / a menu or catalog (founder ask), still no link', () => {
+test('composeColdEmail frames it as a template + invites THEIR photos (never a shoot we run), still no link', () => {
   const { text, html } = composeColdEmail({ name: 'Fade Theory', niche: 'barbershop' }, { shots, config: cfg });
+  assert.ok(/this is just a template/i.test(text) && /just a template/i.test(html), 'honest: it is only a template');
   assert.ok(/as many photos as you'd like/i.test(text), 'invites all their photos');
-  assert.ok(/photoshoot/i.test(text) && /photoshoot/i.test(html), 'offers a photoshoot');
-  assert.ok(/menu or catalog/i.test(text) && /menu or catalog/i.test(html), 'offers a menu or catalog');
+  assert.ok(/photoshoot/i.test(text) && /photoshoot/i.test(html), 'suggests they can take a quick photoshoot themselves');
+  assert.ok(!/set up a photoshoot for you|i can set up a photoshoot|schedule .*photoshoot/i.test(text), 'never claims WE arrange a photoshoot');
   assert.ok(!/https?:\/\//.test(text), 'the cold email still carries no live link');
 });
 
@@ -78,6 +79,17 @@ test('sendColdEmail (dry-run) records an outbound message', async () => {
   assert.equal(r.dry, true);                                       // no creds -> dry
   assert.equal(db.messagesFor(id).length, 1);
   assert.equal(db.messagesFor(id)[0].direction, 'out');
+  db.close();
+});
+
+test('mailer never sends for real under the test runner, even with live ESP creds loaded', async () => {
+  // Regression: a developer .env with RESEND_API_KEY otherwise makes every pipeline test email the
+  // founder's real inbox (this sent the stray "QA Tick Shop" cold emails). IN_TEST must force dry-run.
+  const db = openDatabase(':memory:');
+  const { id } = db.insertLead({ name: 'No Send Co', niche: 'cafe' });
+  const liveCfg = { ...cfg, email: { resendKey: 're_fake_should_never_send' } };
+  const r = await sendColdEmail(db, db.getLead(id), liveCfg);
+  assert.equal(r.dry, true, 'forced dry-run in the test runner despite ESP creds');
   db.close();
 });
 

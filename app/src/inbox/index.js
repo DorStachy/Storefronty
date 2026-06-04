@@ -24,17 +24,25 @@ function decodeQuotedPrintable(s) {
   return Buffer.from(bytes).toString('utf8');
 }
 
+// Strip Unicode bidi/format marks. RTL clients (Hebrew/Arabic Gmail) wrap the quote-attribution line
+// in LRE/RLE/PDF/LRM/RLM marks, which otherwise hide the "<email>" pattern from the quote detector.
+const stripBidi = (s) => s.replace(/[‎‏‪-‮⁦-⁩]/g, '');
+
 // Cut the quoted reply history + signature, keeping only the new message the person typed.
 function stripQuotedAndSignature(body) {
   const out = [];
-  for (const line of body.split('\n')) {
+  for (const raw of body.split('\n')) {
+    const line = stripBidi(raw);
     if (/^\s*--/.test(line)) break;                           // signature "-- " OR a MIME boundary "--xyz"
     if (/^\s*On\b.+\bwrote:\s*$/.test(line)) break;           // Gmail-style English quote header
-    if (/<[^@>\s]+@[^>\s]+>\s*:?\s*$/.test(line)) break;      // any-language attribution ending in "<email>:"
+    // The Gmail attribution in ANY language ("On <date> Name <email> wrote:", Hebrew "בתאריך … מאת
+    // Name <email>:") contains an "<email…" token — a strong, language-agnostic quote-start signal that
+    // a real reply body almost never contains. Match even when the address wraps before its closing ">".
+    if (/<[^@\s>]+@[^@\s>]+/.test(line)) break;
     if (/^\s*-{3,}\s*Original Message\s*-{3,}/i.test(line)) break;
     if (/^\s*>/.test(line)) break;                            // quoted line — rest is history
     if (/^\s*(From|Sent|To|Subject|Content-Type|Content-Transfer-Encoding|Content-Disposition):\s/i.test(line)) break;
-    out.push(line);
+    out.push(raw);
   }
   return out.join('\n');
 }
@@ -72,18 +80,30 @@ export function extractText(raw) {
 // Capped at 6, each must be a non-trivial image. Best-effort: returns [] on anything unexpected.
 export function extractAttachments(raw) {
   const s = String(raw || '').replace(/\r\n/g, '\n');
-  const out = [];
+  const found = [];
   const re = /Content-Type:\s*image\/(?:png|jpe?g|gif|webp)[^]*?\n\n/gi;
+  // Our OWN cold-email section screenshots get quoted back inside the reply — never mistake them for
+  // the customer's uploaded photos (this is what put the screenshots we sent onto the rebuilt site).
+  // Identify them by the filenames we attach (hero/services/gallery/reviews.png) or our @storefronty
+  // Content-ID. Genuine customer attachments have other names and still come through.
+  const OURS = /(?:name|filename)\s*=\s*"?(?:hero|services|gallery|reviews)\.png"?|@storefronty/i;
   let m;
-  while ((m = re.exec(s)) && out.length < 6) {
+  while ((m = re.exec(s)) && found.length < 16) {
+    if (OURS.test(m[0])) continue;                 // skip our quoted cold-email screenshots
     const rest = s.slice(m.index + m[0].length);
     const end = rest.search(/\n--/);
     const b64 = (end >= 0 ? rest.slice(0, end) : rest).replace(/[^A-Za-z0-9+/=]/g, '');
     if (b64.length > 100) {
-      try { const buf = Buffer.from(b64, 'base64'); if (buf.length > 500) out.push(buf); } catch { /* skip a bad part */ }
+      try { const buf = Buffer.from(b64, 'base64'); if (buf.length > 2000) found.push(buf); } catch { /* skip a bad part */ }
     }
   }
-  return out;
+  // Dedupe identical parts, then prefer the BIG images (the owner's real photos, usually >400KB). The
+  // quoted cold-email screenshots + Gmail inline thumbnails are small and drop out. Cap at 4, largest first.
+  const seen = new Set();
+  const uniq = found.filter((b) => { const k = `${b.length}:${b.subarray(0, 48).toString('base64')}`; if (seen.has(k)) return false; seen.add(k); return true; });
+  uniq.sort((a, b) => b.length - a.length);
+  const big = uniq.filter((b) => b.length > 400000);
+  return (big.length ? big : uniq).slice(0, 4);
 }
 
 // Save a reply's photos into the lead's site img dir as photo-N.jpg, so the rebuild (leadImages) renders
@@ -100,31 +120,57 @@ function savePhotos(lead, raw) {
 }
 
 // Real Gmail poll. Returns count handled. Matches a reply to a lead by sender email.
+//
+// HARDENED against a single bad message taking down the whole box: a customer often quotes the entire
+// email back (several MB), and downloading that source can socket-timeout. imapflow then emits an 'error'
+// EVENT — and an unhandled emitter 'error' crashes the process (HTTP + scheduler + poller) in a restart
+// loop. So: (1) a no-op 'error' handler so a socket hiccup is never fatal; (2) a generous socketTimeout
+// so big replies finish; (3) envelope-only listing, then a per-message source fetch wrapped in try/catch
+// so one slow/huge message is skipped, not fatal; (4) every message is deduped + marked seen exactly once
+// (even on failure) so nothing is ever re-processed → no re-send loop, no crash loop.
 export async function poll(db, config, onReply) {
   if (!(config.mail.user && config.mail.pass)) return { polled: 0, note: 'no creds — use the CLI `reply` command to simulate' };
   const { ImapFlow } = await import('imapflow');
   const client = new ImapFlow({
     host: 'imap.gmail.com', port: 993, secure: true,
     auth: { user: config.mail.user, pass: config.mail.pass }, logger: false,
+    greetingTimeout: 15000, socketTimeout: 180000, // 3 min: let a multi-MB quoted reply finish downloading
   });
-  await client.connect();
+  client.on('error', () => { /* never let a transient IMAP socket error crash the process */ });
   let handled = 0;
   try {
+    await client.connect();
     const lock = await client.getMailboxLock('INBOX');
     try {
-      for await (const msg of client.fetch({ seen: false }, { envelope: true, source: true })) {
-        const from = msg.envelope?.from?.[0]?.address?.toLowerCase();
-        const lead = from ? db.getLeadByEmail(from) : null;
-        if (lead) {
-          savePhotos(lead, msg.source);                 // attach the owner's photos to their site (best-effort)
-          await onReply(lead, extractText(msg.source));  // the text change → handleReply → rebuild
-          await client.messageFlagsAdd(msg.uid, ['\\Seen'], { uid: true });
-          handled++;
+      // List envelopes only (cheap), then fetch each source separately so one huge/slow message can't
+      // stall or crash the whole batch.
+      const targets = [];
+      for await (const msg of client.fetch({ seen: false }, { envelope: true })) {
+        targets.push({ uid: msg.uid, from: msg.envelope?.from?.[0]?.address?.toLowerCase(), messageId: msg.envelope?.messageId || `uid:${msg.uid}` });
+      }
+      for (const t of targets) {
+        const markSeen = async () => { try { await client.messageFlagsAdd(t.uid, ['\\Seen'], { uid: true }); } catch { /* dedupe table is the real guard */ } };
+        const lead = t.from ? db.getLeadByEmail(t.from) : null;
+        if (!lead) { await markSeen(); continue; }
+        if (db.replyAlreadyHandled(t.messageId)) { await markSeen(); continue; } // never process the same reply twice
+        let source = null;
+        try { const one = await client.fetchOne(t.uid, { source: true }, { uid: true }); source = one && one.source; }
+        catch { source = null; } // download failed (timeout / too big) — give up on this one, don't crash
+        if (source) {
+          try {
+            savePhotos(lead, source);                 // attach the owner's photos to their site (best-effort)
+            await onReply(lead, extractText(source));  // the text change → handleReply → rebuild
+            handled++;
+          } catch { /* a processing error must still dedupe+seen below, so it never re-loops */ }
         }
+        db.recordHandledReply(t.messageId, lead.id); // dedupe BEFORE we move on — success OR failure, once only
+        await markSeen();
       }
     } finally {
       lock.release();
     }
+  } catch (e) {
+    return { polled: handled, error: String((e && e.message) || e).split('\n')[0] };
   } finally {
     await client.logout().catch(() => { /* best-effort */ });
   }

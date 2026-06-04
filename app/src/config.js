@@ -11,7 +11,10 @@ const envPath = join(ROOT, '.env');
 if (existsSync(envPath)) {
   for (const line of readFileSync(envPath, 'utf8').split('\n')) {
     const m = line.match(/^\s*([A-Za-z0-9_]+)\s*=\s*(.*?)\s*$/);
-    if (m && !line.trimStart().startsWith('#') && !(m[1] in process.env)) {
+    // Load .env when the var is unset OR EMPTY. (An empty shell var — e.g. a stray ANTHROPIC_API_KEY=""
+    // exported by another tool — otherwise silently shadows the real key in .env and breaks the LLM
+    // calls into a silent fallback. Treating empty as unset fixes that; a non-empty shell var still wins.)
+    if (m && !line.trimStart().startsWith('#') && !process.env[m[1]]) {
       process.env[m[1]] = m[2].replace(/^["']|["']$/g, '');
     }
   }

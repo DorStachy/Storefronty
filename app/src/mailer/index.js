@@ -11,6 +11,12 @@ const here = dirname(fileURLToPath(import.meta.url));
 const OUTBOX = resolve(here, '..', '..', 'public', '_outbox');
 const delay = (ms) => new Promise((r) => setTimeout(r, ms));
 
+// Never send REAL mail from the unit-test runner (`node --test`), even when a developer's .env has live
+// ESP creds loaded — otherwise every test that exercises the pipeline (tick/wow-build/founder-notify)
+// silently emails the founder's real inbox. The e2e scripts (`node e2e-prod.mjs` — no --test) still send
+// for real; set MAIL_LIVE=1 to force a real send under the test runner if ever needed.
+const IN_TEST = (!!process.env.NODE_TEST_CONTEXT || process.execArgv.includes('--test')) && process.env.MAIL_LIVE !== '1';
+
 let cachedTransport = null;
 async function getTransport(config) {
   if (cachedTransport) return cachedTransport;
@@ -48,8 +54,9 @@ export async function sendEmail({ to, from, subject, html, text, attachments }, 
   // is ever contacted during dev/E2E. Central (covers all current + future callers); the per-call-site
   // `testRecipient || lead.email` checks remain as defense-in-depth. Only the address changes.
   if (config.mail?.testRecipient) to = config.mail.testRecipient;
-  // Real send when EITHER an authenticated ESP (Resend) OR Gmail creds are configured.
-  const hasCreds = config.email?.resendKey || (config.mail?.user && config.mail?.pass);
+  // Real send when EITHER an authenticated ESP (Resend) OR Gmail creds are configured — UNLESS we're in
+  // the test runner (IN_TEST), which forces the dry-run path so `npm test` never emits real email.
+  const hasCreds = !IN_TEST && (config.email?.resendKey || (config.mail?.user && config.mail?.pass));
 
   if (!hasCreds && !_transport) {
     mkdirSync(OUTBOX, { recursive: true });
