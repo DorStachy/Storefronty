@@ -10,6 +10,7 @@ import { config } from '../src/config.js';
 // review mode, fake test inbox. node --test isolates this file's process.
 config.mail.user = '';
 config.mail.pass = '';
+config.email = { resendKey: '', from: '' }; // also force dry-run (no Resend either) — tests never really send
 config.mail.testRecipient = 'demo@local.test';
 config.mode = 'review';
 delete process.env.GEMINI_API_KEY;

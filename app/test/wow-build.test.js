@@ -63,6 +63,7 @@ test('replied handler art-directs → v3 site (theme-v3, generated CSS), QA pass
   // Hermetic: deterministic fill + deterministic art-director fallback (no keys), review mode, fake
   // inbox so notifyFounder writes to the dry-run outbox instead of really sending.
   config.mode = 'review';
+  config.mail.user = ''; config.mail.pass = ''; config.email = { resendKey: '', from: '' }; // force dry-run (no real send)
   config.mail.testRecipient = 'demo@local.test';
   delete process.env.GEMINI_API_KEY;
   delete process.env.ANTHROPIC_API_KEY;

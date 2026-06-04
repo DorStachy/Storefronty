@@ -9,6 +9,7 @@ import { config } from '../src/config.js';
 // singleton/env mutations don't leak to other suites.
 config.mail.user = '';
 config.mail.pass = '';
+config.email = { resendKey: '', from: '' }; // also force dry-run (no Resend either) — tests never really send
 config.mail.testRecipient = 'demo@local.test';
 delete process.env.GEMINI_API_KEY;
 
