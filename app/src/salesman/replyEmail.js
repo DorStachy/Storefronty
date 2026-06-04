@@ -36,7 +36,7 @@ When you like it, here's your private portal — claim your free account and it'
 ${claim}
 Inside, you can message me any change you want and I'll redesign it for you, watch it update live, and pick a plan whenever it feels right. Your next change is on me.
 
-One honest note, so this doesn't feel out of nowhere: I'm a real person, not a bot or a scam. I came across ${shop} on Google, saw you didn't have a website yet, and built this one for you to look at — no charge to look, no catch. Not sure it's legit? Just hit reply and you'll reach me directly, or see who we are at ${portalBase}. Not interested? Reply STOP and you won't hear from me again.
+One honest note, so this doesn't feel out of nowhere: I'm a real person. I came across ${shop} on Google, saw you didn't have a website yet, and built this one for you to look at. Reply any time and you'll reach me directly, or see who we are at ${portalBase}. Not interested? Reply STOP and you won't hear from me again.
 
 Talk soon,
 ${fromName}
@@ -58,7 +58,7 @@ ${config.postalAddress} · Reply STOP to unsubscribe`;
 <p>When you like it, here's your private portal — claim your free account and it's yours to run:</p>
 <p><a href="${e.claimHref}" style="${btn}">Open your private portal</a></p>
 <p style="color:#5a5a5a">Inside, you can message me any change you want and I'll redesign it for you, watch it update live, and pick a plan whenever it feels right. Your next change is on me.</p>
-<p style="color:#5a5a5a;font-size:14px;background:#f6f6fb;border:1px solid #ececf6;border-radius:8px;padding:12px 14px">One honest note, so this doesn't feel out of nowhere: I'm a real person, not a bot or a scam. I came across ${e.shop} on Google, saw you didn't have a website yet, and built this one for you to look at — no charge to look, no catch. Not sure it's legit? Just hit reply and you'll reach me directly${e.portalText ? `, or see who we are at <a href="${e.portalHref}">${e.portalText}</a>` : ''}. Not interested? Reply STOP and you won't hear from me again.</p>
+<p style="color:#5a5a5a;font-size:14px;background:#f6f6fb;border:1px solid #ececf6;border-radius:8px;padding:12px 14px">One honest note, so this doesn't feel out of nowhere: I'm a real person. I came across ${e.shop} on Google, saw you didn't have a website yet, and built this one for you to look at. Reply any time and you'll reach me directly${e.portalText ? `, or see who we are at <a href="${e.portalHref}">${e.portalText}</a>` : ''}. Not interested? Reply STOP and you won't hear from me again.</p>
 <p>Talk soon,<br>${e.fromName}<br>${e.brand}</p>
 <hr style="border:none;border-top:1px solid #eee;margin:18px 0">
 <p style="color:#8a8278;font-size:12px">${e.postal} · Reply STOP to unsubscribe</p>

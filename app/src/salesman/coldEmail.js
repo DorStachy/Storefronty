@@ -58,7 +58,7 @@ If you'd want it, just reply and tell me what to change. The usual things people
 - change the colors, fonts, or layout
 - fix any of the wording, prices, or hours
 
-I'll make those changes for free, so you can see I'm serious, and then send you a link to the real working site to click around and share. You're not signing up for anything.
+I'll make those changes for you, so you can see I'm serious, and then send you a link to the real working site to click around and share. You're not signing up for anything.
 
 Let me know what you think.
 
@@ -90,7 +90,7 @@ ${imgs}
 <li>change the colors, fonts, or layout</li>
 <li>fix any of the wording, prices, or hours</li>
 </ul>
-<p>I'll make those changes for free, so you can see I'm serious, and then send you a link to the real working site to click around and share. You're not signing up for anything.</p>
+<p>I'll make those changes for you, so you can see I'm serious, and then send you a link to the real working site to click around and share. You're not signing up for anything.</p>
 <p>Let me know what you think.</p>
 <p>${e.fromName}<br>${e.brand} — websites for local businesses</p>
 <hr style="border:none;border-top:1px solid #eee;margin:18px 0">

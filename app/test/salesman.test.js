@@ -42,7 +42,7 @@ test('composeColdEmail = approved §5.6 copy, 3 inline screenshots, NO live link
   const { subject, html, text, attachments } = composeColdEmail({ name: 'Fade Theory', niche: 'barbershop' }, { shots, config: cfg });
   assert.equal(subject, 'a website for Fade Theory');
   assert.ok(text.includes("My name's Michael and I'm a web designer"));
-  assert.ok(text.includes("I'll make those changes for free, so you can see I'm serious"));
+  assert.ok(text.includes("I'll make those changes for you, so you can see I'm serious"));
   assert.ok(text.includes("You're not signing up for anything."));
   assert.ok(!/https?:\/\//.test(text), 'the cold email carries NO live link (link only comes after a reply)');
   assert.ok(!/[\u{1F300}-\u{1FAFF}☀-➿←-⇿]/u.test(text), 'hand-typed: no emojis');

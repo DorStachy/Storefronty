@@ -47,6 +47,11 @@ export const config = {
   // Hosting for the post-reply 48h preview: 'local' (the static server) until Cloudflare creds land.
   hosting: { engine: E.HOSTING_ENGINE || 'local', previewHours: Number(E.PREVIEW_HOURS) || 48 },
   anthropic: { apiKey: E.ANTHROPIC_API_KEY || '', model: E.ANTHROPIC_MODEL || 'claude-opus-4-8' },
+  // Authenticated transactional email (Resend). When RESEND_API_KEY is set, the mailer sends via Resend
+  // (SPF/DKIM/DMARC-aligned → inbox) instead of Gmail. MAIL_FROM is the verified sender — a verified
+  // domain ("Storefronty <hello@yourdomain.com>") or "Storefronty <onboarding@resend.dev>" for the
+  // sandbox. Reply-To stays GMAIL_USER so the IMAP poller still catches replies. See docs/superpowers/SENDING_TRUST.md.
+  email: { resendKey: E.RESEND_API_KEY || '', from: E.MAIL_FROM || '' },
   stripe: { secretKey: E.STRIPE_SECRET_KEY || '', webhookSecret: E.STRIPE_WEBHOOK_SECRET || '' },
   // Payment provider: Paddle (Merchant of Record — works for Israeli sellers) is preferred; Stripe
   // stays available for a US-LLC path. A 'stub' provider (PAYMENTS_STUB=1) completes checkout with no

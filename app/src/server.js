@@ -103,21 +103,29 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   // box runs itself with no external cron. Opt-in via env (0/unset = off → dev + tests never tick).
   const tickMs = Number(process.env.TICK_INTERVAL_MS || 0);
   if (tickMs > 0) {
-    const runTick = async () => {
+    let ticking = false; // reentrancy guard: a slow handler (Opus wow-build ~60-90s) must not be re-entered
+    const runTick = async () => {            // by the next interval — that double-sends emails + double-builds.
+      if (ticking) return;
+      ticking = true;
       try { const { tick } = await import('./orchestrator.js'); const acted = await tick(db); if (acted.length) console.log(`tick: advanced ${acted.length} lead(s)`); }
       catch (e) { console.error('tick error:', e.message || e); }
+      finally { ticking = false; }
     };
     setInterval(runTick, tickMs);
     runTick();
   }
   const pollMs = Number(process.env.POLL_INTERVAL_MS || 0);
   if (pollMs > 0 && config.mail.user && config.mail.pass) {
+    let polling = false; // same: don't let a slow IMAP poll overlap itself (double-handles a reply)
     const runPoll = async () => {
+      if (polling) return;
+      polling = true;
       try {
         const [{ poll }, { handleReply }] = await Promise.all([import('./inbox/index.js'), import('./orchestrator.js')]);
         const r = await poll(db, config, (lead, text) => handleReply(db, lead, text));
         if (r.polled) console.log(`inbox: handled ${r.polled} repl${r.polled === 1 ? 'y' : 'ies'}`);
       } catch (e) { console.error('poll error:', e.message || e); }
+      finally { polling = false; }
     };
     setInterval(runPoll, pollMs);
   }

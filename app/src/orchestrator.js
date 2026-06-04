@@ -2,7 +2,7 @@
 // per-status handlers. The cold-pitch funnel (corrected with the founder): build a themed demo from
 // the shop's REAL Google data → capture 3 section screenshots → send a personal email with those
 // screenshots and NO live link. The live 48h link only follows after the owner replies (Phase 2).
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync, readdirSync, mkdirSync, copyFileSync } from 'node:fs';
 import { dirname, resolve, join, basename } from 'node:path';
 import { research } from './researcher/index.js';
 import { buildSiteV2, writeSite, slugFor, PUBLIC_DIR } from './builder/build2.js';
@@ -85,6 +85,23 @@ async function leadImages(lead, config) {
   return saved.map((f) => `img/${basename(f)}`);
 }
 
+// If the owner uploaded photos via a portal change request, copy the newest set into the site's img
+// dir so the rebuild renders them (hero + gallery). Returns relative urls, or [] if none uploaded.
+function portalPhotos(db, lead) {
+  const acct = db.getAccountByLead(lead.id);
+  if (!acct) return [];
+  const withImgs = db.changeRequestsFor(acct.id).filter((r) => r.images);
+  if (!withImgs.length) return [];
+  let paths = [];
+  try { paths = JSON.parse(withImgs[withImgs.length - 1].images) || []; } catch { return []; }
+  if (!paths.length) return [];
+  const dir = join(PUBLIC_DIR, slugFor(lead), 'img');
+  mkdirSync(dir, { recursive: true });
+  const out = [];
+  paths.slice(0, 6).forEach((p, i) => { try { copyFileSync(p, join(dir, `photo-${i}.jpg`)); out.push(`img/photo-${i}.jpg`); } catch { /* skip a bad one */ } });
+  return out;
+}
+
 // Per-status handlers, run in order each tick.
 const HANDLERS = {
   // Build the tailored demo from real Google data. Cheap-LLM fill when GEMINI_API_KEY is set,
@@ -126,7 +143,10 @@ const HANDLERS = {
   replied: async (db, lead) => {
     const change = latestChange(db, lead.id);
     const { contract, design } = await applyArtDirection(lead, { change, photos: [] });
-    const built = await writeSite(lead, contract, { design, images: await leadImages(lead, config), apiBase: config.portalBaseUrl });
+    // Prefer the owner's portal-uploaded photos (their real photos); else fall back to Google photos.
+    const portal = portalPhotos(db, lead);
+    const images = portal.length ? portal : await leadImages(lead, config);
+    const built = await writeSite(lead, contract, { design, images, apiBase: config.portalBaseUrl });
     const facts = [contract.shopName, contract.contact?.phone].filter(Boolean);
     const qa = await qaCheck({ htmlPath: built.htmlPath, mustInclude: facts });
     if (!qa.ok) { db.setStatus(lead.id, 'needs_human', { reason: 'qa_failed', issues: qa.issues.map((i) => i.type) }); return; }

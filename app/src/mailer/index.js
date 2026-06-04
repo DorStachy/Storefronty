@@ -15,6 +15,20 @@ let cachedTransport = null;
 async function getTransport(config) {
   if (cachedTransport) return cachedTransport;
   const nodemailer = (await import('nodemailer')).default;
+  const resendKey = config.email?.resendKey;
+  if (resendKey) {
+    // Authenticated transactional sending via Resend — SPF/DKIM/DMARC-aligned, so it lands in the inbox
+    // instead of spam (which a personal gmail.com sender structurally cannot achieve). FROM must be a
+    // Resend-verified domain (or "Name <onboarding@resend.dev>" for the sandbox); see MAIL_FROM. Replies
+    // still route to the Gmail inbox via Reply-To, so the existing IMAP poller keeps catching them.
+    cachedTransport = nodemailer.createTransport({
+      host: 'smtp.resend.com', port: 465, secure: true,
+      auth: { user: 'resend', pass: resendKey },
+      pool: true, maxConnections: 2,
+      connectionTimeout: 10000, greetingTimeout: 10000, socketTimeout: 20000,
+    });
+    return cachedTransport;
+  }
   cachedTransport = nodemailer.createTransport({
     service: 'gmail',
     auth: { user: config.mail.user, pass: config.mail.pass },
@@ -34,7 +48,8 @@ export async function sendEmail({ to, from, subject, html, text, attachments }, 
   // is ever contacted during dev/E2E. Central (covers all current + future callers); the per-call-site
   // `testRecipient || lead.email` checks remain as defense-in-depth. Only the address changes.
   if (config.mail?.testRecipient) to = config.mail.testRecipient;
-  const hasCreds = config.mail?.user && config.mail?.pass;
+  // Real send when EITHER an authenticated ESP (Resend) OR Gmail creds are configured.
+  const hasCreds = config.email?.resendKey || (config.mail?.user && config.mail?.pass);
 
   if (!hasCreds && !_transport) {
     mkdirSync(OUTBOX, { recursive: true });
@@ -49,7 +64,9 @@ export async function sendEmail({ to, from, subject, html, text, attachments }, 
   // header so Gmail/Outlook show a native one-click unsubscribe — both reduce spam-flagging and make the
   // message read as legitimate (sender authenticity, not a phishing blast).
   const headers = config.mail?.user ? { 'List-Unsubscribe': `<mailto:${config.mail.user}?subject=unsubscribe>` } : undefined;
-  const envelope = { from: from || `${config.mail.fromName} <${config.mail.user}>`, replyTo: config.mail.user || undefined, to, subject, html, text, ...(headers ? { headers } : {}), ...(attachments?.length ? { attachments } : {}) };
+  // From: the ESP-verified sender (MAIL_FROM) when sending via Resend; else the Gmail identity. Reply-To
+  // stays the Gmail inbox the IMAP poller reads, so replies are still caught regardless of the transport.
+  const envelope = { from: from || config.email?.from || `${config.mail.fromName} <${config.mail.user}>`, replyTo: config.mail.user || undefined, to, subject, html, text, ...(headers ? { headers } : {}), ...(attachments?.length ? { attachments } : {}) };
   let lastErr;
   for (let attempt = 1; attempt <= retries + 1; attempt++) {
     try {
