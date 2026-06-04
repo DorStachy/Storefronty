@@ -66,3 +66,42 @@ ${config.postalAddress} · Reply STOP to unsubscribe`;
 
   return { subject, text, html };
 }
+
+/**
+ * composeUpdateEmail(lead, { siteUrl, changeSummary, config }) -> { subject, text, html }
+ * A SHORT, no-claim-link confirmation for an owner who has ALREADY claimed their portal and just made a
+ * change there. The portal chat is the live reply; this is a light "it's live" nudge by email too — so it
+ * must never contain the account-claim link (they've claimed) and stays brief.
+ */
+export function composeUpdateEmail(lead, { siteUrl, changeSummary = '', config }) {
+  const fromName = config.mail.fromName;
+  const shop = lead.name || 'your shop';
+  const subject = `${shop} — your site’s updated`;
+  const changes = changeSummary || 'the change you asked for';
+  const portalBase = (config.portalBaseUrl || '').replace(/\/$/, '');
+
+  const text = `Done — I just pushed ${changes} live on ${shop}'s site. Take a look:
+${siteUrl}
+
+Want more? Open your portal and tell me in the chat — I'll redesign it and you'll watch it update live:
+${portalBase}
+
+Talk soon,
+${fromName}
+${config.brand}`;
+
+  const e = {
+    changes: escapeHtml(changes), fromName: escapeHtml(fromName), shop: escapeHtml(shop), brand: escapeHtml(config.brand),
+    siteHref: escapeHtml(safeUrl(siteUrl)), siteText: escapeHtml(siteUrl), portalHref: escapeHtml(safeUrl(portalBase)),
+  };
+  const btn = 'display:inline-block;background:#5B5BF5;color:#fff;text-decoration:none;font-weight:600;padding:11px 22px;border-radius:8px';
+  const html = `<div style="font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#262626;max-width:600px">
+<p>Done — I just pushed <i>${e.changes}</i> live on ${e.shop}'s site. Take a look:</p>
+<p><a href="${e.siteHref}">${e.siteText}</a></p>
+<p>Want more? Open your portal and tell me in the chat — I'll redesign it and you'll watch it update live:</p>
+<p><a href="${e.portalHref}" style="${btn}">Open your portal</a></p>
+<p>Talk soon,<br>${e.fromName}<br>${e.brand}</p>
+</div>`;
+
+  return { subject, text, html };
+}

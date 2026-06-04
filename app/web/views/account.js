@@ -24,9 +24,11 @@ export function AccountView(ctx) {
       row('Email', account.email || '—'),
       row('Shop', me.shop || h('span', { class: 'muted' }, 'Not set yet'))),
     h('hr', { class: 'hairline', style: { margin: '20px 0 16px' } }),
-    h('div', { style: { display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' } },
-      h('button', { class: 'btn ghost sm', disabled: true }, 'Change password'),
-      h('span', { class: 'muted', style: { fontSize: '13px' } }, 'Coming soon')));
+    h('div', { style: { display: 'grid', gap: '10px' } },
+      h('div', { class: 'eyebrow', style: { letterSpacing: '.1em' } }, 'Security'),
+      h('div', { style: { display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' } },
+        h('span', { class: account.emailVerified ? 'badge ok dot' : 'badge dot' }, account.emailVerified ? 'Email verified' : 'Email not verified'),
+        h('span', { class: 'muted', style: { fontSize: '13px' } }, 'We email a 6-digit code to confirm sign-ins from a new device.'))));
 
   // --- Your site ---
   const siteBody = site && site.previewUrl

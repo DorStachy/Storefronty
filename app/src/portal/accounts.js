@@ -48,10 +48,15 @@ export function createAccount(db, { email, password, leadId = null }) {
   return { ok: true, account: db.getAccount(id) };
 }
 
+// A fixed valid-format hash to compare against when the account is missing or Google-only (no password),
+// so authenticate ALWAYS runs one scrypt — no timing tell for "does this email exist / have a password".
+const DUMMY_HASH = hashPassword('storefronty-timing-equalizer');
+
 export function authenticate(db, email, password) {
   const acct = db.getAccountByEmail(email);
-  if (!acct || !verifyPassword(password, acct.password_hash)) return null;
-  return acct;
+  const stored = acct && acct.password_hash ? acct.password_hash : DUMMY_HASH;
+  const ok = verifyPassword(password, stored);                 // constant work either way
+  return acct && acct.password_hash && ok ? acct : null;
 }
 
 // Quota = plan allowance this month + the post-signup free change + bought top-up credits. 'YYYY-MM'.

@@ -58,6 +58,46 @@ test('reply loop: edit reply → Opus rebuild → QA → founder approve → 2-l
   db.close();
 });
 
+test('approved: a CLAIMED owner is answered IN THE PORTAL CHAT, not sent another claim email', async () => {
+  const db = openDatabase(':memory:');
+  const { id } = db.insertLead({ name: 'Claimed Cafe', niche: 'cafe', email: 'demo@local.test' });
+  for (const s of ['built', 'deployed', 'emailed', 'replied', 'editing', 'approved']) db.setStatus(id, s);
+  db.addSite(id, { slug: 'claimed-cafe', engine: 'llm-html', htmlPath: '/tmp/x/index.html' }); // deploy is local (just a URL)
+  const acctId = db.addAccount({ leadId: id, email: 'demo@local.test', passwordHash: 'x' });   // they've claimed
+  db.addChangeRequest({ accountId: acctId, leadId: id, body: 'add a gallery of my 5 photos', kind: 'free' });
+  db.recordEvent(id, 'edit_request', { change: 'add a gallery of my 5 photos', via: 'portal' });
+
+  await tick(db); // the 'approved' handler runs
+
+  assert.equal(db.getLead(id).status, 'link_sent');
+  assert.equal(db.messagesFor(id).filter((m) => m.type === 'email2').length, 0, 'no claim email to an already-claimed owner');
+  assert.equal(db.messagesFor(id).filter((m) => m.type === 'update').length, 1, 'a brief no-claim "it\'s live" email is sent too');
+  const reqs = db.changeRequestsFor(acctId);
+  assert.equal(reqs.length, 1);
+  assert.equal(reqs[0].status, 'done');
+  assert.match(reqs[0].result, /updated your site/i); // the completion the chat shows
+  db.close();
+});
+
+test('approved: a claimed owner who replied by EMAIL still sees it answered in the chat (mirrored)', async () => {
+  const db = openDatabase(':memory:');
+  const { id } = db.insertLead({ name: 'Mirror Cafe', niche: 'cafe', email: 'demo@local.test' });
+  for (const s of ['built', 'deployed', 'emailed', 'replied', 'editing', 'approved']) db.setStatus(id, s);
+  db.addSite(id, { slug: 'mirror-cafe', engine: 'llm-html', htmlPath: '/tmp/y/index.html' });
+  const acctId = db.addAccount({ leadId: id, email: 'demo@local.test', passwordHash: 'x' });
+  db.recordEvent(id, 'edit_request', { change: 'make the header green', via: 'email' }); // NO portal change_request
+
+  await tick(db);
+
+  const reqs = db.changeRequestsFor(acctId);
+  assert.equal(reqs.length, 1, 'the email change is mirrored into the chat thread');
+  assert.equal(reqs[0].status, 'done');
+  assert.match(reqs[0].body, /header green/);
+  assert.equal(db.messagesFor(id).filter((m) => m.type === 'email2').length, 0);
+  assert.equal(db.messagesFor(id).filter((m) => m.type === 'update').length, 1); // brief no-claim confirmation
+  db.close();
+});
+
 test('reply loop: an opt-out reply suppresses the address and opts the lead out (rules, not LLM)', async () => {
   const db = openDatabase(':memory:');
   const { id } = db.insertLead({ name: 'Bye Cafe', niche: 'cafe', email: 'bye@local.test' });

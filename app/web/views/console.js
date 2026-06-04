@@ -5,15 +5,42 @@ import { h, icon, initials, orb } from '../ui.js';
 export async function ConsoleView(ctx) {
   const wrap = h('div', { class: 'console' });
   const thread = h('div', { class: 'thread' });
-  const ta = h('textarea', { rows: 1, placeholder: 'Tell me what to change — e.g. “make the header navy and add my patio photos”' });
+  const ta = h('textarea', { rows: 1, placeholder: 'Tell me what to change — e.g. “add a section showcasing my 5 best photos”' });
   const fill = (t) => { ta.value = t; autoResize(ta); ta.focus(); };
 
-  wrap.append(thread, composer(ctx, thread, ta));
+  // While a rebuild is in flight we poll so its "all done" lands in the chat live (not just an email).
+  const shown = new Set();        // request ids whose completion is already in the thread
+  let handle = null, ticks = 0;
+  const stop = () => { if (handle != null) { clearInterval(handle); handle = null; } };
+  const watch = () => {           // idempotent: one poller at a time, self-stops on detach / completion / cap
+    if (handle != null) return;
+    handle = setInterval(async () => {
+      if (!document.contains(wrap) || ++ticks > 90) { stop(); return; }   // navigated away / ~6min safety cap
+      let reqs;
+      try { reqs = (await ctx.api.requests()).requests || []; } catch { return; }
+      for (const r of reqs) {
+        if (r.done && r.result && !shown.has(r.id)) {
+          shown.add(r.id);
+          const node = aiMsg(''); thread.append(node);
+          typeInto(node.querySelector('.bubble'), r.result, thread);
+          ctx.toast('Your site’s updated ✨');
+        }
+      }
+      if (!reqs.some((r) => !r.done)) stop();   // nothing left in flight
+    }, 4000);
+  };
+
+  wrap.append(thread, composer(ctx, thread, ta, watch));
 
   let history = [];
   try { history = (await ctx.api.requests()).requests || []; } catch { /* show empty */ }
   if (!history.length) thread.append(emptyState(ctx, fill));
-  else for (const r of history) { thread.append(userMsg(ctx, r.body, r.images)); thread.append(aiMsg(r.reply)); }
+  else for (const r of history) {
+    thread.append(userMsg(ctx, r.body, r.images));
+    thread.append(aiMsg(r.reply));
+    if (r.done && r.result) { thread.append(aiMsg(r.result)); shown.add(r.id); }
+  }
+  if (history.some((r) => !r.done)) watch();   // a request is still building → wait for its completion
   requestAnimationFrame(() => scrollEnd(thread));
   return wrap;
 }
@@ -44,7 +71,7 @@ function emptyState(ctx, fill) {
 }
 
 // ---- composer -------------------------------------------------------------
-function composer(ctx, thread, ta) {
+function composer(ctx, thread, ta, onQueued) {
   ta.addEventListener('input', () => autoResize(ta));
   const pending = []; // [{ name, dataUrl }]
 
@@ -91,6 +118,8 @@ function composer(ctx, thread, ta) {
       const node = aiMsg(''); thread.append(node);
       typeInto(node.querySelector('.bubble'), r.reply, thread);
       if (r.quota) { Object.assign(ctx.me.quota, r.quota); quota.textContent = quotaText(ctx.me.quota); }
+      if (typeof onQueued === 'function') onQueued();   // start watching for the "all done" completion
+
     } catch (e) {
       typing.remove();
       const node = aiMsg(''); thread.append(node);

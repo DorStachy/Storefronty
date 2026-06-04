@@ -42,6 +42,9 @@ CREATE TABLE IF NOT EXISTS events (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   lead_id INTEGER, type TEXT NOT NULL, payload TEXT, created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS seen_replies (
+  message_id TEXT PRIMARY KEY, lead_id INTEGER, created_at TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS suppressions (
   email TEXT PRIMARY KEY, reason TEXT, created_at TEXT NOT NULL
 );
@@ -71,6 +74,18 @@ CREATE TABLE IF NOT EXISTS change_requests (
   images TEXT,                          -- JSON array of uploaded photo paths (sent with the request)
   created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS email_codes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  account_id INTEGER NOT NULL,
+  purpose TEXT NOT NULL,                 -- 'verify' (signup email) | 'login' (2nd factor)
+  code_hash TEXT NOT NULL,               -- HMAC of the 6-digit code (never the plaintext)
+  attempts INTEGER DEFAULT 0, used INTEGER DEFAULT 0,
+  expires_at TEXT NOT NULL, created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS login_attempts (
+  email TEXT PRIMARY KEY, fails INTEGER DEFAULT 0,
+  window_start TEXT, locked_until TEXT   -- brute-force lockout (per email)
+);
 `;
 
 const now = () => new Date().toISOString();
@@ -84,6 +99,10 @@ export function openDatabase(path) {
   // column form in sqlite, so guard the ALTER and ignore "duplicate column" on already-migrated DBs.
   try { db.exec('ALTER TABLE sites ADD COLUMN expires_at TEXT'); } catch { /* column already present */ }
   try { db.exec('ALTER TABLE change_requests ADD COLUMN images TEXT'); } catch { /* present */ }
+  // The assistant's completion message + when the rebuild finished — so the portal CHAT (not just an
+  // email) shows the owner their request was carried out. status flips 'queued' -> 'done' alongside.
+  try { db.exec('ALTER TABLE change_requests ADD COLUMN result TEXT'); } catch { /* present */ }
+  try { db.exec('ALTER TABLE change_requests ADD COLUMN done_at TEXT'); } catch { /* present */ }
   try { db.exec('ALTER TABLE accounts ADD COLUMN extra_changes INTEGER DEFAULT 0'); } catch { /* present */ }
   // The serialized { contract, design } the v3 site was built from — lets us regenerate the SAME site
   // at a richer tier (Pro/Premium) on purchase without another Opus call. Null for legacy/cold sites.
@@ -91,6 +110,11 @@ export function openDatabase(path) {
   // Custom domain (Premium): the owner-supplied hostname + its verification status (none|pending|verified).
   try { db.exec('ALTER TABLE accounts ADD COLUMN custom_domain TEXT'); } catch { /* present */ }
   try { db.exec("ALTER TABLE accounts ADD COLUMN domain_status TEXT DEFAULT 'none'"); } catch { /* present */ }
+  // Email verification: 0 until the owner confirms a 6-digit code we email them (security §2FA).
+  try { db.exec('ALTER TABLE accounts ADD COLUMN email_verified INTEGER DEFAULT 0'); } catch { /* present */ }
+  // Session version: baked into every session token; bumping it (logout) invalidates ALL prior tokens
+  // server-side, so a stolen/old cookie stops working even before its own expiry.
+  try { db.exec('ALTER TABLE accounts ADD COLUMN session_version INTEGER DEFAULT 0'); } catch { /* present */ }
 
   let inTx = false;          // re-entry guard for nested transaction() calls
 
@@ -213,6 +237,12 @@ export function openDatabase(path) {
     },
     messagesFor: (leadId) => db.prepare('SELECT * FROM messages WHERE lead_id = ? ORDER BY id').all(leadId),
 
+    // Idempotency for the IMAP poller: never process the same inbound reply twice even if the IMAP
+    // \Seen flag fails to stick — otherwise the poller re-fires the wow-build + Email 2 every cycle.
+    // Keyed by the message's RFC822 Message-ID.
+    replyAlreadyHandled: (mid) => !!db.prepare('SELECT 1 FROM seen_replies WHERE message_id = ?').get(String(mid || '')),
+    recordHandledReply: (mid, leadId) => { try { db.prepare('INSERT OR IGNORE INTO seen_replies (message_id,lead_id,created_at) VALUES (?,?,?)').run(String(mid || ''), leadId ?? null, now()); } catch { /* ignore dup */ } },
+
     // --- portal accounts + change requests (Phase 3) ---
     addAccount({ leadId, email, passwordHash, authProvider = 'password' }) {
       const info = db.prepare(`INSERT INTO accounts (lead_id,email,password_hash,auth_provider,created_at)
@@ -226,6 +256,8 @@ export function openDatabase(path) {
       db.prepare('UPDATE accounts SET plan = ?, plan_status = ?, stripe_customer = COALESCE(?, stripe_customer) WHERE id = ?')
         .run(plan, planStatus, stripeCustomer ?? null, id),
     markFreeChangeUsed: (id) => db.prepare('UPDATE accounts SET free_change_used = 1 WHERE id = ?').run(id),
+    // Revoke every existing session for this account (e.g. on logout) by advancing its session version.
+    bumpSessionVersion: (id) => db.prepare('UPDATE accounts SET session_version = COALESCE(session_version,0) + 1 WHERE id = ?').run(id),
     addExtraChanges: (id, n) => db.prepare('UPDATE accounts SET extra_changes = COALESCE(extra_changes,0) + ? WHERE id = ?').run(n, id),
     consumeExtraChange: (id) => db.prepare('UPDATE accounts SET extra_changes = MAX(0, COALESCE(extra_changes,0) - 1) WHERE id = ?').run(id),
     // Custom domain (Premium): store the owner's hostname (status → 'pending') and update verification.
@@ -241,6 +273,51 @@ export function openDatabase(path) {
     // Count of quota-consuming ('change') requests in a given 'YYYY-MM' month.
     changeRequestsThisMonth: (accountId, monthPrefix) =>
       db.prepare("SELECT COUNT(*) n FROM change_requests WHERE account_id = ? AND kind = 'change' AND substr(created_at,1,7) = ?").get(accountId, monthPrefix).n,
+
+    // The rebuild finished: mark every still-open ('queued') request for this lead 'done' and attach the
+    // completion message to the most recent one (so the chat shows one "all done" reply, not one per row).
+    // Returns how many requests were closed (0 ⇒ the change didn't originate from the portal). Atomic.
+    markChangeRequestsDoneForLead(leadId, result) {
+      return api.transaction(() => {
+        const rows = db.prepare("SELECT id FROM change_requests WHERE lead_id = ? AND status = 'queued' ORDER BY id").all(leadId);
+        if (!rows.length) return 0;
+        const lastId = rows[rows.length - 1].id;
+        const ts = now();
+        for (const r of rows) db.prepare('UPDATE change_requests SET status = ?, done_at = ?, result = ? WHERE id = ?')
+          .run('done', ts, r.id === lastId ? (result ?? null) : null, r.id);
+        return rows.length;
+      });
+    },
+    // Close a single request by id with its completion message (used when mirroring an email-originated
+    // change into the chat thread so a claimed owner still sees it answered in the portal).
+    markChangeRequestDone: (id, result) =>
+      db.prepare("UPDATE change_requests SET status = 'done', done_at = ?, result = ? WHERE id = ?").run(now(), result ?? null, id),
+
+    // --- email verification + email-code 2FA + brute-force lockout (security) ---
+    setEmailVerified: (id) => db.prepare('UPDATE accounts SET email_verified = 1 WHERE id = ?').run(id),
+
+    // Issue a fresh code, superseding any prior unused one for the same purpose (only one live at a time).
+    createEmailCode({ accountId, purpose, codeHash, expiresAt }) {
+      return api.transaction(() => {
+        db.prepare("UPDATE email_codes SET used = 1 WHERE account_id = ? AND purpose = ? AND used = 0").run(accountId, purpose);
+        const info = db.prepare('INSERT INTO email_codes (account_id,purpose,code_hash,attempts,used,expires_at,created_at) VALUES (?,?,?,0,0,?,?)')
+          .run(accountId, purpose, codeHash, expiresAt, now());
+        return Number(info.lastInsertRowid);
+      });
+    },
+    latestEmailCode: (accountId, purpose) =>
+      db.prepare("SELECT * FROM email_codes WHERE account_id = ? AND purpose = ? AND used = 0 ORDER BY id DESC").get(accountId, purpose),
+    bumpEmailCodeAttempt: (id) => db.prepare('UPDATE email_codes SET attempts = attempts + 1 WHERE id = ?').run(id),
+    // Atomic single-use: only the FIRST caller flips used 0→1 (returns 1); a concurrent duplicate gets 0.
+    consumeEmailCode: (id) => Number(db.prepare('UPDATE email_codes SET used = 1 WHERE id = ? AND used = 0').run(id).changes),
+
+    getLoginAttempt: (email) => db.prepare('SELECT * FROM login_attempts WHERE email = ?').get(String(email || '').toLowerCase().trim()),
+    recordLoginFail({ email, windowStart, fails, lockedUntil = null }) {
+      db.prepare(`INSERT INTO login_attempts (email,fails,window_start,locked_until) VALUES (?,?,?,?)
+        ON CONFLICT(email) DO UPDATE SET fails = excluded.fails, window_start = excluded.window_start, locked_until = excluded.locked_until`)
+        .run(String(email).toLowerCase().trim(), fails, windowStart, lockedUntil);
+    },
+    clearLoginAttempts: (email) => db.prepare('DELETE FROM login_attempts WHERE email = ?').run(String(email || '').toLowerCase().trim()),
   };
   return api;
 }

@@ -6,6 +6,8 @@ import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { signToken, verifyToken } from '../util/sign.js';
 import { createAccount, authenticate, quota, canRequestChange, monthKeyOf, PLANS, PLAN_LIST, TOPUPS, TOPUP_LIST } from '../portal/accounts.js';
+import { newCode, hashCode, verifyCodeHash, sessionToken, verifySession, pendingToken, verifyPending, trustToken, verifyTrust, CODE_TTL_SEC, MAX_CODE_ATTEMPTS, RESEND_COOLDOWN_SEC, TRUST_TTL_SEC, LOCKOUT_THRESHOLD, LOCKOUT_WINDOW_SEC, LOCKOUT_SEC } from '../portal/emailauth.js';
+import { composeCodeEmail } from '../email/codeEmail.js';
 import { canTransition } from '../states.js';
 import { shotsFromDir } from '../screenshot/index.js';
 import { googleAuthUrl, googleLogin } from '../auth/google.js';
@@ -38,19 +40,54 @@ function saveImages(accountId, images) {
 }
 
 const SESSION_COOKIE = 'sf_session';
+const TRUST_COOKIE = 'sf_trust';
 const json = (status, obj, headers = {}) => ({ status, headers: { 'content-type': 'application/json; charset=utf-8', ...headers }, body: JSON.stringify(obj) });
 const redirect302 = (to, headers = {}) => ({ status: 302, headers: { location: to, ...headers }, body: '' });
-const sessionCookie = (accountId, config) => `${SESSION_COOKIE}=${signToken({ accountId }, config.signSecret)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000`;
+// `Secure` whenever we're served over https (prod) — never on http (local/tests) so dev still works.
+const secureFlag = (config) => (/^https:/i.test(config.portalBaseUrl || '') ? '; Secure' : '');
+const sessionCookie = (account, config) => `${SESSION_COOKIE}=${sessionToken(account.id, config.signSecret, account.session_version || 0)}; Path=/; HttpOnly; SameSite=Lax${secureFlag(config)}; Max-Age=2592000`;
+const trustCookie = (accountId, config) => `${TRUST_COOKIE}=${trustToken(accountId, config.signSecret)}; Path=/; HttpOnly; SameSite=Lax${secureFlag(config)}; Max-Age=${TRUST_TTL_SEC}`;
 const clearCookie = () => `${SESSION_COOKIE}=; Path=/; HttpOnly; Max-Age=0`;
+const isoIn = (sec) => new Date(Date.now() + sec * 1000).toISOString();
+// Uniform code-failure response (one message for bad/expired/missing → no enumeration; cap → 429).
+const codeError = (r) => r.tooMany
+  ? json(429, { error: 'too many tries — request a new code' })
+  : json(400, { error: 'that code is incorrect or has expired — request a new one', expired: !!r.expired });
 
-function sessionAccount(db, cookies, config) {
-  const tok = (cookies || {})[SESSION_COOKIE];
-  if (!tok) return null;
-  const p = verifyToken(tok, config.signSecret);
-  return p && p.accountId ? db.getAccount(p.accountId) : null;
+// Generate a 6-digit code, store its hash for `purpose`, and email it (best-effort — routed to the test
+// recipient in dev/E2E by the mailer). Never reveals whether the email send succeeded (anti-enumeration).
+async function issueCode(db, account, purpose, config) {
+  const code = newCode();
+  db.createEmailCode({ accountId: account.id, purpose, codeHash: hashCode(code, config.signSecret), expiresAt: isoIn(CODE_TTL_SEC) });
+  try {
+    const { sendEmail } = await import('../mailer/index.js');
+    await sendEmail({ to: (config.mail && config.mail.testRecipient) || account.email, ...composeCodeEmail({ code, purpose, config }) }, config);
+  } catch { /* delivery is best-effort; the code still stands and can be resent */ }
 }
 
-const safeAccount = (a) => ({ id: a.id, email: a.email, plan: a.plan, planStatus: a.plan_status, freeChangeUsed: !!a.free_change_used });
+// Validate a submitted code for `purpose`. One live code at a time; expiry + attempt-cap enforced;
+// consumption is atomic (single-use even under concurrency). Returns { ok } | { error } | { expired } | { tooMany }.
+function checkCode(db, account, purpose, code, config) {
+  const row = db.latestEmailCode(account.id, purpose);
+  if (!row) return { error: true };
+  if (new Date(row.expires_at).getTime() < Date.now()) return { expired: true };
+  if (row.attempts >= MAX_CODE_ATTEMPTS) return { tooMany: true };
+  if (!verifyCodeHash(String(code || ''), row.code_hash, config.signSecret)) { db.bumpEmailCodeAttempt(row.id); return { error: true }; }
+  if (db.consumeEmailCode(row.id) !== 1) return { error: true }; // lost a race / already consumed
+  return { ok: true };
+}
+
+// Session = a kind-tagged, self-expiring token (verifySession rejects any other token class, e.g. a trust
+// or pending token replayed here, and any expired token — so a leaked cookie can't be reused forever).
+function sessionAccount(db, cookies, config) {
+  const claims = verifySession((cookies || {})[SESSION_COOKIE] || '', config.signSecret);
+  if (!claims) return null;
+  const acct = db.getAccount(claims.accountId);
+  if (!acct || (acct.session_version || 0) !== (claims.sv || 0)) return null; // revoked (logout bumped sv)
+  return acct;
+}
+
+const safeAccount = (a) => ({ id: a.id, email: a.email, plan: a.plan, planStatus: a.plan_status, freeChangeUsed: !!a.free_change_used, emailVerified: !!a.email_verified });
 
 // A natural, human-feeling acknowledgement of a change request (LLM-backed later; templated now).
 export function replyText(text, useFree, photos = 0) {
@@ -215,16 +252,80 @@ export async function handleApi({ method, path, body = {}, cookies = {}, db, con
     const leadId = claim && claim.kind === 'claim' ? claim.leadId : null;
     const r = createAccount(db, { email: body.email, password: body.password, leadId });
     if (!r.ok) return json(400, { error: r.error });
-    // Claim = TRIAL: the account binds to the site, but the 48h preview stays a trial. Only PAYING for a
-    // plan makes it permanent (see applyPaidPlan). We intentionally do NOT drop the TTL here.
-    return json(200, { account: safeAccount(r.account) }, { 'set-cookie': sessionCookie(r.account.id, config) });
+    // Email-verify FIRST: no session until they enter the 6-digit code we email. The account still binds
+    // to the lead's site now (claim = TRIAL; only PAYING drops the 48h TTL — see applyPaidPlan).
+    await issueCode(db, r.account, 'verify', config);
+    return json(200, { needsVerify: true, email: r.account.email });
   }
   if (path === '/api/auth/login' && method === 'POST') {
-    const acct = authenticate(db, body.email, body.password);
-    if (!acct) return json(401, { error: 'wrong email or password' });
-    return json(200, { account: safeAccount(acct) }, { 'set-cookie': sessionCookie(acct.id, config) });
+    const email = String(body.email || '').toLowerCase().trim();
+    const at = db.getLoginAttempt(email);
+    if (at && at.locked_until && new Date(at.locked_until).getTime() > Date.now()) {
+      return json(429, { error: 'too many attempts — please wait a few minutes and try again' });
+    }
+    const acct = authenticate(db, email, body.password);
+    if (!acct) {
+      // Count failures within a rolling window; lock the email after the threshold (brute-force defence).
+      const within = !!(at && at.window_start && (Date.now() - new Date(at.window_start).getTime() < LOCKOUT_WINDOW_SEC * 1000));
+      const fails = (within ? at.fails : 0) + 1;
+      db.recordLoginFail({ email, windowStart: within ? at.window_start : new Date().toISOString(), fails, lockedUntil: fails >= LOCKOUT_THRESHOLD ? isoIn(LOCKOUT_SEC) : null });
+      return json(401, { error: 'wrong email or password' });
+    }
+    db.clearLoginAttempts(email);
+    if (!acct.email_verified) { await issueCode(db, acct, 'verify', config); return json(200, { needsVerify: true, email: acct.email }); }
+    // Trusted device (verified here before) → straight in. New device → email a 2nd-factor code AND mint a
+    // short-lived pending token: the password has been proven, and only this token can clear the code step.
+    if (verifyTrust(cookies[TRUST_COOKIE] || '', config.signSecret, acct.id)) {
+      return json(200, { account: safeAccount(acct) }, { 'set-cookie': sessionCookie(acct, config) });
+    }
+    await issueCode(db, acct, 'login', config);
+    return json(200, { needs2fa: true, email: acct.email, pendingToken: pendingToken(acct.id, config.signSecret) });
   }
-  if (path === '/api/auth/logout' && method === 'POST') return json(200, { ok: true }, { 'set-cookie': clearCookie() });
+  if (path === '/api/auth/logout' && method === 'POST') {
+    const acct = sessionAccount(db, cookies, config);
+    if (acct) db.bumpSessionVersion(acct.id);   // revoke this account's tokens server-side, not just the cookie
+    return json(200, { ok: true }, { 'set-cookie': clearCookie() });
+  }
+
+  // Confirm the signup email with the 6-digit code → verified + session + trusted device. Email-keyed
+  // (the account was just created, unverified, with no access yet — the code proves email control).
+  if (path === '/api/auth/verify-email' && method === 'POST') {
+    const acct = db.getAccountByEmail(body.email);
+    // Only an UNVERIFIED account can use this path — otherwise a 'verify' code would be an email-only
+    // login that bypasses the password for an existing account. Already-verified → generic refusal.
+    if (!acct || acct.email_verified) return json(400, { error: 'that code is incorrect or has expired — request a new one' });
+    const r = checkCode(db, acct, 'verify', body.code, config);
+    if (!r.ok) return codeError(r);
+    db.setEmailVerified(acct.id);
+    return json(200, { account: safeAccount(db.getAccount(acct.id)) }, { 'set-cookie': [sessionCookie(acct, config), trustCookie(acct.id, config)] });
+  }
+  // Login 2nd factor: REQUIRES the pending token from a correct password (the code alone is never enough),
+  // and the account must be verified. → session + trusted device.
+  if (path === '/api/auth/2fa' && method === 'POST') {
+    const accountId = verifyPending(body.pendingToken || '', config.signSecret);
+    if (!accountId) return json(400, { error: 'your sign-in session expired — please log in again' });
+    const acct = db.getAccount(accountId);
+    if (!acct || !acct.email_verified) return json(400, { error: 'please log in again' });
+    const r = checkCode(db, acct, 'login', body.code, config);
+    if (!r.ok) return codeError(r);
+    return json(200, { account: safeAccount(acct) }, { 'set-cookie': [sessionCookie(acct, config), trustCookie(acct.id, config)] });
+  }
+  // Resend a code. 'login' resend needs the pending token (so login codes can't be minted without the
+  // password); 'verify' is email-keyed. Always 200, and silently skips inside the cooldown — so neither
+  // account existence nor the cooldown state leaks (anti-enumeration).
+  if (path === '/api/auth/resend' && method === 'POST') {
+    const purpose = body.purpose === 'login' ? 'login' : 'verify';
+    let acct = null;
+    if (purpose === 'login') { const id = verifyPending(body.pendingToken || '', config.signSecret); if (id) acct = db.getAccount(id); }
+    else acct = db.getAccountByEmail(body.email);
+    // 'login' codes require a verified account (+ the pending token, already checked); 'verify' codes only
+    // for an UNVERIFIED account (never re-issue a verify code to a verified one — see verify-email).
+    if (acct && (purpose === 'login' ? acct.email_verified : !acct.email_verified)) {
+      const last = db.latestEmailCode(acct.id, purpose);
+      if (!(last && Date.now() - new Date(last.created_at).getTime() < RESEND_COOLDOWN_SEC * 1000)) await issueCode(db, acct, purpose, config);
+    }
+    return json(200, { ok: true });
+  }
   if (path === '/api/plans' && method === 'GET') {
     return json(200, { plans: PLAN_LIST.map((p) => ({ key: p.key, label: p.label, price: p.price, quota: p.quota === Infinity ? null : p.quota, domainIncluded: !!p.domainIncluded, exampleUrl: p.exampleUrl || null })) });
   }
@@ -273,7 +374,11 @@ export async function handleApi({ method, path, body = {}, cookies = {}, db, con
   if (path === '/api/requests' && method === 'GET') {
     const reqs = db.changeRequestsFor(account.id).map((r) => {
       const imgs = r.images ? safeLen(r.images) : 0;
-      return { id: r.id, body: r.body, kind: r.kind, status: r.status, createdAt: r.created_at, images: imgs, reply: replyText(r.body, r.kind === 'free', imgs) };
+      return {
+        id: r.id, body: r.body, kind: r.kind, status: r.status, createdAt: r.created_at, images: imgs,
+        reply: replyText(r.body, r.kind === 'free', imgs),
+        result: r.result || null, done: r.status === 'done', doneAt: r.done_at || null, // completion shown in the chat
+      };
     });
     return json(200, { requests: reqs });
   }
@@ -431,6 +536,7 @@ export async function handleGoogleCallback({ query, db, config }) {
     const leadId = claim && claim.kind === 'claim' ? claim.leadId : null;
     account = db.getAccount(db.addAccount({ leadId, email: profile.email, passwordHash: null, authProvider: 'google' }));
   }
+  if (!account.email_verified) db.setEmailVerified(account.id); // Google already verified the email — no code needed
   // Claim via Google = TRIAL too (mirrors /api/auth/signup): no TTL drop here; paying makes it permanent.
-  return redirect302('/dashboard', { 'set-cookie': sessionCookie(account.id, config) });
+  return redirect302('/dashboard', { 'set-cookie': [sessionCookie(account, config), trustCookie(account.id, config)] });
 }
