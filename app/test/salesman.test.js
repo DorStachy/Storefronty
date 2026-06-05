@@ -41,12 +41,17 @@ test('builder still renders fine when there are no details (fallback defaults)',
 test('composeColdEmail = approved §5.6 copy, 3 inline screenshots, NO live link', () => {
   const { subject, html, text, attachments } = composeColdEmail({ name: 'Fade Theory', niche: 'barbershop' }, { shots, config: cfg });
   assert.equal(subject, 'a website for Fade Theory');
-  assert.ok(text.includes("My name's Michael and I'm a web designer"));
+  assert.ok(text.includes("I'm Michael, founder of Storefronty"));
   assert.ok(text.includes("to show you I'm serious"));
   assert.ok(text.includes("You're not signing up for anything"));
+  // DELIVERABILITY: plain + personal — NO "scam/phishing" reassurance (a spam trigger) and NO marketing
+  // banner image (both landed our first test in spam). New closing: portal + one free change.
+  assert.ok(!/scam|phishing/i.test(text) && !/scam|phishing/i.test(html), 'no spam-trigger reassurance');
+  assert.ok(!/cid:banner/.test(html), 'no marketing banner in the cold email');
+  assert.ok(/your own portal/i.test(text) && /one free change/i.test(text), 'new closing: portal + free change');
   assert.ok(!/https?:\/\//.test(text), 'the cold email carries NO live link (link only comes after a reply)');
   assert.ok(!/[\u{1F300}-\u{1FAFF}☀-➿←-⇿]/u.test(text), 'hand-typed: no emojis');
-  assert.equal(attachments.length, 3); // 3 section screenshots attached
+  assert.equal(attachments.length, 3); // exactly the 3 section screenshots — nothing else
   assert.ok(html.includes('cid:shot0@storefronty') && html.includes('cid:shot2@storefronty')); // inline
   assert.ok(html.includes('Storefronty LLC')); // physical address (CAN-SPAM)
   assert.ok(text.toLowerCase().includes('unsubscribe'));

@@ -5,6 +5,11 @@
 // wording); every other sentence is the approved copy, verbatim.
 import { escapeHtml } from '../util/html.js';
 
+// DELIVERABILITY: the cold email is deliberately plain + personal — no header banner, no "not a scam"
+// reassurance, minimal styling. A marketing banner + trust-protest phrasing pattern-matches to spam from a
+// fresh sender (it landed our first test in spam). A hand-typed-looking note reaches the inbox far more
+// often. The Storefronty banner is kept in web/ for the post-reply emails, where the relationship exists.
+
 // niche family -> the two phrases that vary. Order matters (first match wins).
 const FAMILIES = [
   { match: /barber|salon|beauty|spa|tattoo|nail|lash|brow|wax/, action: 'walk in or book', servicesWord: 'services' },
@@ -46,15 +51,15 @@ export function composeColdEmail(lead, { shots = [], config }) {
 
   // ---- text/plain (faithful to the approved copy; images noted as attached) -----------------
   const bracket = labels.length ? `\n${labels.map((l) => `[ ${l} ]`).join('   ')}\n(screenshots attached)\n` : '\n';
-  const text = `Hi ${first},
+  const text = `Hey ${first},
 
-My name's ${fromName} and I'm a web designer. I came across ${lead.name} on Google, saw you don't have a website yet, and built you a template to show what one could look like. A few screenshots are below.
+I'm ${fromName}, founder of ${config.brand}. I came across ${lead.name} on Google, saw you don't have a website yet, and built you a template to show what one could look like. A few screenshots are below.
 ${bracket}
 This is just a template, but it's built with your real info — your hours, your ${v.servicesWord}, and the reviews people have left you on Google — so you can picture it on your own business instead of some generic mock-up. I made it to show you I'm serious, and to see whether a website is something you'd actually want. A good one makes a real difference to how many people ${v.action}.
 
-If it is, just reply and tell me how you picture it — the colors, the feel, anything you'd want. And send me photos: as many photos as you'd like of your space, your team, and your work. If you want it to really shine, take a few fresh ones — even a quick photoshoot on your phone — and send them over. Real photos make the biggest difference.
+If you'd like it, just reply and tell me how you picture it — the colors, the feel — and send me photos: as many photos as you'd like of your space, your team, and your work. If you want it to really shine, take a few fresh ones — even a quick photoshoot on your phone. There's nothing to click and nothing to sign up for — just reply.
 
-From there I'll build you the real, working site, send you a link to click around and share, and make any changes you ask for along the way. You're not signing up for anything, and it costs you nothing to take a look.
+I'll send you a link to click around and share, and your own portal where you can manage your website — plus one free change on the house. You're not signing up for anything, and it costs you nothing to try us — just reply and see how serious we are about this.
 
 Let me know what you think.
 
@@ -75,12 +80,12 @@ ${config.postalAddress} · Reply STOP to unsubscribe`;
     )
     .join('');
   const html = `<div style="font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#262626;max-width:600px">
-<p>Hi ${e.first},</p>
-<p>My name's ${e.fromName} and I'm a web designer. I came across <b>${e.name}</b> on Google, saw you don't have a website yet, and built you a template to show what one could look like. A few screenshots are below.</p>
+<p>Hey ${e.first},</p>
+<p>I'm ${e.fromName}, founder of ${e.brand}. I came across <b>${e.name}</b> on Google, saw you don't have a website yet, and built you a template to show what one could look like. A few screenshots are below.</p>
 ${imgs}
 <p>This is just a template, but it's built with your real info — your hours, your ${e.services}, and the reviews people have left you on Google — so you can picture it on your own business instead of some generic mock-up. I made it to show you I'm serious, and to see whether a website is something you'd actually want. A good one makes a real difference to how many people ${e.action}.</p>
-<p>If it is, just reply and tell me how you picture it — the colors, the feel, anything you'd want. And send me photos: as many photos as you'd like of your space, your team, and your work. If you want it to really shine, take a few fresh ones — even a quick photoshoot on your phone — and send them over. Real photos make the biggest difference.</p>
-<p>From there I'll build you the real, working site, send you a link to click around and share, and make any changes you ask for along the way. You're not signing up for anything, and it costs you nothing to take a look.</p>
+<p>If you'd like it, just reply and tell me how you picture it — the colors, the feel — and send me photos: as many photos as you'd like of your space, your team, and your work. If you want it to really shine, take a few fresh ones — even a quick photoshoot on your phone. There's nothing to click and nothing to sign up for — just reply.</p>
+<p>I'll send you a link to click around and share, and your own portal where you can manage your website — plus one free change on the house. You're not signing up for anything, and it costs you nothing to try us — just reply and see how serious we are about this.</p>
 <p>Let me know what you think.</p>
 <p>${e.fromName}<br>${e.brand} — websites for local businesses</p>
 <hr style="border:none;border-top:1px solid #eee;margin:18px 0">
