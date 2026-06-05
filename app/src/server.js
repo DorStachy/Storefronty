@@ -129,4 +129,27 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
     };
     setInterval(runPoll, pollMs);
   }
+
+  // In-process domain warm-up (free, self-hosted): build storefronty.cc's sending reputation by sending a
+  // gentle, ramping volume of plain notes FROM michael@storefronty.cc (Resend → DKIM d=storefronty.cc, the
+  // same path the real campaign uses) to a seed inbox we own, then engaging them over IMAP (rescue-from-
+  // spam + mark-read + star) — the positive signals Gmail attributes to the sender domain. Opt-in via
+  // WARMUP_ENABLED=1, and only when the Resend + IMAP creds it needs are present. The cap-tracking state
+  // lives on the data volume, so restarts never push past the day's cap. Reentrancy-guarded like tick/poll.
+  const warmMs = Number(process.env.WARMUP_INTERVAL_MS || 0);
+  if (warmMs > 0 && process.env.WARMUP_ENABLED === '1' && config.email?.resendKey && config.mail?.user && config.mail?.pass) {
+    let warming = false;
+    const runWarm = async () => {
+      if (warming) return;
+      warming = true;
+      try {
+        const { runCycle } = await import('./warmup/index.js');
+        const r = await runCycle(config);
+        if (r.sent || r.rescued || r.starred) console.log(`warmup: sent ${r.sent}, rescued ${r.rescued}, starred ${r.starred} (day ${r.dayIndex}, ${r.sentToday}/${r.dayCap} today)`);
+      } catch (e) { console.error('warmup error:', e.message || e); }
+      finally { warming = false; }
+    };
+    setInterval(runWarm, warmMs);
+    runWarm();
+  }
 }

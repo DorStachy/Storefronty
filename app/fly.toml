@@ -18,8 +18,10 @@ primary_region = "iad"
   DB_PATH = "/data/storefronty.db"
   HOSTING_ENGINE = "cloudflare"    # 48h preview sites → Cloudflare KV (free)
   CHROMIUM_NO_SANDBOX = "1"        # Playwright Chromium inside the container
-  TICK_INTERVAL_MS = "60000"       # advance the pipeline every 60s (in-process scheduler)
-  POLL_INTERVAL_MS = "120000"      # read Gmail replies every 120s
+  TICK_INTERVAL_MS = "0"           # OFF during the manual campaign — sending is driven in controlled batches
+  POLL_INTERVAL_MS = "0"           # OFF — replies are NOT auto-handled; they wait in the inbox for manual review
+  WARMUP_ENABLED = "1"             # ON — free self-hosted domain warm-up for storefronty.cc (see src/warmup)
+  WARMUP_INTERVAL_MS = "10800000"  # every 3h → ~8 cycles/day, spreading the daily ramp cap across the day
   BRAND = "Storefronty"
   # Set these to the real URL after the first deploy (reply-email + claim links use them):
   PUBLIC_BASE_URL = "https://storefronty.fly.dev"
